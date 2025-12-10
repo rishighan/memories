@@ -2,23 +2,10 @@
 #
 # Copyright 2025 Rishi Ghan
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
-#
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import requests
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, List
 
 
 class MemosAPI:
@@ -65,3 +52,41 @@ class MemosAPI:
             return None
         except:
             return None
+
+    def get_memos(self, page_size: int = 50, page_token: str = None) -> Tuple[bool, List[Dict[str, Any]], str]:
+        """Get list of memos with pagination - NO attachment fetching here"""
+        try:
+            params = {'pageSize': page_size}
+            if page_token:
+                params['pageToken'] = page_token
+
+            response = requests.get(
+                f'{self.base_url}/api/v1/memos',
+                headers=self.headers,
+                params=params,
+                timeout=10
+            )
+            if response.status_code == 200:
+                data = response.json()
+                memos = data.get('memos', [])
+                next_page_token = data.get('nextPageToken', None)
+                return True, memos, next_page_token
+            return False, [], None
+        except:
+            return False, [], None
+
+    def get_memo_attachments(self, memo_name: str) -> List[Dict[str, Any]]:
+        """Get attachments for a specific memo"""
+        try:
+            url = f'{self.base_url}/api/v1/{memo_name}/attachments'
+            response = requests.get(
+                url,
+                headers=self.headers,
+                timeout=5
+            )
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('attachments', [])
+            return []
+        except:
+            return []

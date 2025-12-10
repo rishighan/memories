@@ -7,7 +7,14 @@
 }
 
 .card {
-
+    background-color: @window_bg_color;
     border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
+
+/* Rounded image thumbnails */
+.thumbnail {
+    border-radius: 12px;
+    overflow: hidden;
+}
+/* Let Adwaita handle all the entry styling */

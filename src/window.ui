@@ -7,150 +7,217 @@
     <property name="default-width">600</property>
     <property name="default-height">500</property>
     <property name="content">
-      <object class="AdwToolbarView">
-        <child type="top">
-          <object class="AdwHeaderBar">
-            <child type="end">
-              <object class="GtkMenuButton">
-                <property name="primary">True</property>
-                <property name="icon-name">open-menu-symbolic</property>
-                <property name="tooltip-text" translatable="yes">Main Menu</property>
-                <property name="menu-model">primary_menu</property>
-              </object>
-            </child>
-          </object>
-        </child>
-        <property name="content">
-          <!-- Gradient Background -->
-          <object class="GtkOverlay">
+      <object class="GtkStack" id="main_stack">
+        <property name="transition-type">slide-left-right</property>
+
+        <!-- Connection Screen -->
+        <child>
+          <object class="GtkStackPage">
+            <property name="name">connection</property>
             <property name="child">
-              <object class="GtkBox">
-                <property name="orientation">vertical</property>
-                <style>
-                  <class name="gradient-bg"/>
-                </style>
-              </object>
-            </property>
-            <child type="overlay">
-              <object class="AdwClamp">
-                <property name="maximum-size">500</property>
-                <property name="tightening-threshold">400</property>
-                <child>
-                  <object class="GtkBox">
-                    <property name="orientation">vertical</property>
-                    <property name="spacing">32</property>
-                    <property name="margin-top">60</property>
-                    <property name="margin-bottom">60</property>
-                    <property name="margin-start">24</property>
-                    <property name="margin-end">24</property>
-                    <property name="valign">center</property>
-
-                    <!-- Hero Section -->
-                    <child>
-                      <object class="GtkBox">
-                        <property name="orientation">vertical</property>
-                        <property name="spacing">12</property>
-                        <property name="halign">center</property>
-
-                        <child>
-                          <object class="GtkLabel">
-                            <property name="label" translatable="yes">Memories</property>
-                            <style>
-                              <class name="title-1"/>
-                            </style>
-                          </object>
-                        </child>
-
-                        <child>
-                          <object class="GtkLabel">
-                            <property name="label" translatable="yes">Your Memos, Everywhere</property>
-                            <style>
-                              <class name="title-3"/>
-                              <class name="dim-label"/>
-                            </style>
-                          </object>
-                        </child>
+              <object class="AdwToolbarView">
+                <child type="top">
+                  <object class="AdwHeaderBar">
+                    <child type="end">
+                      <object class="GtkMenuButton">
+                        <property name="primary">True</property>
+                        <property name="icon-name">open-menu-symbolic</property>
+                        <property name="tooltip-text" translatable="yes">Main Menu</property>
+                        <property name="menu-model">primary_menu</property>
                       </object>
                     </child>
-
-                    <!-- Connection Card -->
-                    <child>
+                  </object>
+                </child>
+                <property name="content">
+                  <object class="GtkOverlay">
+                    <property name="child">
                       <object class="GtkBox">
                         <property name="orientation">vertical</property>
-                        <property name="spacing">20</property>
                         <style>
-                          <class name="card"/>
+                          <class name="gradient-bg"/>
                         </style>
-                        <property name="margin-start">12</property>
-                        <property name="margin-end">12</property>
-
+                      </object>
+                    </property>
+                    <child type="overlay">
+                      <object class="AdwClamp">
+                        <property name="maximum-size">500</property>
+                        <property name="tightening-threshold">400</property>
                         <child>
                           <object class="GtkBox">
                             <property name="orientation">vertical</property>
-                            <property name="margin-top">24</property>
-                            <property name="margin-bottom">24</property>
+                            <property name="spacing">32</property>
+                            <property name="margin-top">60</property>
+                            <property name="margin-bottom">60</property>
                             <property name="margin-start">24</property>
                             <property name="margin-end">24</property>
-                            <property name="spacing">20</property>
+                            <property name="valign">center</property>
 
                             <child>
-                              <object class="GtkLabel">
-                                <property name="label" translatable="yes">Connect to Server</property>
-                                <property name="halign">start</property>
-                                <style>
-                                  <class name="title-2"/>
-                                </style>
-                              </object>
-                            </child>
+                              <object class="GtkBox">
+                                <property name="orientation">vertical</property>
+                                <property name="spacing">12</property>
+                                <property name="halign">center</property>
 
-                            <child>
-                              <object class="AdwPreferencesGroup">
                                 <child>
-                                  <object class="AdwEntryRow" id="url_entry">
-                                    <property name="title" translatable="yes">Server URL</property>
+                                  <object class="GtkLabel">
+                                    <property name="label" translatable="yes">Memories</property>
+                                    <style>
+                                      <class name="title-1"/>
+                                    </style>
                                   </object>
                                 </child>
 
                                 <child>
-                                  <object class="AdwPasswordEntryRow" id="token_entry">
-                                    <property name="title" translatable="yes">API Token</property>
+                                  <object class="GtkLabel">
+                                    <property name="label" translatable="yes">Your Memos, Everywhere</property>
+                                    <style>
+                                      <class name="title-3"/>
+                                      <class name="dim-label"/>
+                                    </style>
                                   </object>
                                 </child>
                               </object>
                             </child>
 
                             <child>
-                              <object class="GtkButton" id="connect_button">
-                                <property name="label" translatable="yes">Connect</property>
-                                <property name="halign">center</property>
-                                <property name="width-request">200</property>
+                              <object class="GtkBox">
+                                <property name="orientation">vertical</property>
+                                <property name="spacing">20</property>
                                 <style>
-                                  <class name="suggested-action"/>
-                                  <class name="pill"/>
+                                  <class name="card"/>
                                 </style>
+                                <property name="margin-start">12</property>
+                                <property name="margin-end">12</property>
+
+                                <child>
+                                  <object class="GtkBox">
+                                    <property name="orientation">vertical</property>
+                                    <property name="margin-top">24</property>
+                                    <property name="margin-bottom">24</property>
+                                    <property name="margin-start">24</property>
+                                    <property name="margin-end">24</property>
+                                    <property name="spacing">20</property>
+
+                                    <child>
+                                      <object class="GtkLabel">
+                                        <property name="label" translatable="yes">Connect to Server</property>
+                                        <property name="halign">start</property>
+                                        <style>
+                                          <class name="title-2"/>
+                                        </style>
+                                      </object>
+                                    </child>
+
+                                    <child>
+                                      <object class="AdwPreferencesGroup">
+                                        <child>
+                                          <object class="AdwEntryRow" id="url_entry">
+                                            <property name="title" translatable="yes">Server URL</property>
+                                          </object>
+                                        </child>
+
+                                        <child>
+                                          <object class="AdwPasswordEntryRow" id="token_entry">
+                                            <property name="title" translatable="yes">API Token</property>
+                                          </object>
+                                        </child>
+                                      </object>
+                                    </child>
+
+                                    <child>
+                                      <object class="GtkButton" id="connect_button">
+                                        <property name="label" translatable="yes">Connect</property>
+                                        <property name="halign">center</property>
+                                        <property name="width-request">200</property>
+                                        <style>
+                                          <class name="suggested-action"/>
+                                          <class name="pill"/>
+                                        </style>
+                                      </object>
+                                    </child>
+
+                                    <child>
+                                      <object class="GtkLabel" id="status_label">
+                                        <property name="wrap">true</property>
+                                        <property name="justify">center</property>
+                                        <property name="halign">center</property>
+                                      </object>
+                                    </child>
+
+                                  </object>
+                                </child>
                               </object>
                             </child>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                </property>
+              </object>
+            </property>
+          </object>
+        </child>
+
+        <!-- Memos List Screen -->
+        <child>
+          <object class="GtkStackPage">
+            <property name="name">memos</property>
+            <property name="child">
+              <object class="AdwToolbarView">
+                <child type="top">
+                  <object class="AdwHeaderBar">
+                    <property name="title-widget">
+                      <object class="AdwWindowTitle">
+                        <property name="title" translatable="yes">Your Memos</property>
+                      </object>
+                    </property>
+                    <child type="end">
+                      <object class="GtkMenuButton">
+                        <property name="primary">True</property>
+                        <property name="icon-name">open-menu-symbolic</property>
+                        <property name="tooltip-text" translatable="yes">Main Menu</property>
+                        <property name="menu-model">primary_menu</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <property name="content">
+                  <object class="GtkScrolledWindow" id="scrolled_window">
+                    <property name="hscrollbar-policy">never</property>
+                    <property name="vexpand">true</property>
+                    <child>
+                      <object class="AdwClamp">
+                        <property name="maximum-size">800</property>
+                        <child>
+                          <object class="GtkBox">
+                            <property name="orientation">vertical</property>
+                            <property name="margin-top">12</property>
+                            <property name="margin-bottom">12</property>
+                            <property name="margin-start">12</property>
+                            <property name="margin-end">12</property>
+                            <property name="spacing">12</property>
 
                             <child>
-                              <object class="GtkLabel" id="status_label">
-                                <property name="wrap">true</property>
-                                <property name="justify">center</property>
-                                <property name="halign">center</property>
+                              <object class="GtkListBox" id="memos_list">
+                                <property name="selection-mode">none</property>
+                                <style>
+                                  <class name="boxed-list"/>
+                                </style>
                               </object>
                             </child>
 
                           </object>
                         </child>
-
                       </object>
                     </child>
-
                   </object>
-                </child>
+                </property>
               </object>
-            </child>
+            </property>
           </object>
-        </property>
+        </child>
+
       </object>
     </property>
   </template>
