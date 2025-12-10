@@ -33,6 +33,9 @@ memories_sources = [
   'memo_row.py',
   'memo_loader.py',
   'settings.py',
+  'utils/connection_handler.py',
+  'ui/connection_view.py',
+  'ui/memos_view.py',
 ]
 
 install_data(memories_sources, install_dir: moduledir)
