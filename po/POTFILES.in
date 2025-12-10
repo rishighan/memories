@@ -1,0 +1,8 @@
+# List of source files containing translatable strings.
+# Please keep this file sorted alphabetically.
+data/org.quasars.memories.desktop.in
+data/org.quasars.memories.metainfo.xml.in
+data/org.quasars.memories.gschema.xml
+src/main.py
+src/window.py
+src/window.ui

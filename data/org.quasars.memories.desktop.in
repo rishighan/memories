@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=memories
+Exec=memories
+Icon=org.quasars.memories
+Terminal=false
+Type=Application
+Categories=Utility;
+Keywords=GTK;
+StartupNotify=true
+DBusActivatable=true
