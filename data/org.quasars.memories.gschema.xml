@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist gettext-domain="memories">
-	<schema id="org.quasars.memories" path="/org/quasars/memories/">
-	</schema>
+  <schema id="org.quasars.memories" path="/org/quasars/memories/">
+    <key name="server-url" type="s">
+      <default>''</default>
+      <summary>Memos server URL</summary>
+    </key>
+    <key name="api-token" type="s">
+      <default>''</default>
+      <summary>API token</summary>
+    </key>
+  </schema>
 </schemalist>

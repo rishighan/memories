@@ -43,4 +43,9 @@ configure_file(
   install_dir: get_option('datadir') / 'dbus-1' / 'services'
 )
 
+# Install GSchema
+install_data('org.quasars.memories.gschema.xml',
+  install_dir: get_option('datadir') / 'glib-2.0' / 'schemas'
+)
+
 subdir('icons')

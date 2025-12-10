@@ -17,4 +17,15 @@
     border-radius: 12px;
     overflow: hidden;
 }
+
+/* Remove background from month headers */
+list > row.month-header {
+    background: none;
+    border: none;
+    box-shadow: none;
+}
+
+list > row.month-header:hover {
+    background: none;
+}
 /* Let Adwaita handle all the entry styling */

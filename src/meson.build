@@ -27,11 +27,12 @@ configure_file(
 )
 
 memories_sources = [
-  '__init__.py',
   'main.py',
   'window.py',
   'memos_api.py',
-  'style.css'
+  'memo_row.py',
+  'memo_loader.py',
+  'settings.py',
 ]
 
 install_data(memories_sources, install_dir: moduledir)
