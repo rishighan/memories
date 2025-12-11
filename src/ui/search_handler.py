@@ -17,10 +17,12 @@ class SearchHandler:
         self.search_bar = search_bar
         self.search_button = search_button
         self.on_results_callback = None
+        self.last_query = None
         
         # Connect signals
         self.search_button.connect('toggled', self.on_search_toggled)
         self.search_entry.connect('search-changed', self.on_search_changed)
+        self.search_entry.connect('stop-search', self.on_search_stopped)  # Add this
         
         # Bind search bar to button
         self.search_bar.connect_entry(self.search_entry)
@@ -36,20 +38,37 @@ class SearchHandler:
         else:
             # Clear search when closing
             self.search_entry.set_text('')
+            if self.on_results_callback:
+                self.on_results_callback(None, [])
+
+    def on_search_stopped(self, entry):
+        """Handle Escape key or search cleared"""
+        self.search_button.set_active(False)
+        if self.on_results_callback:
+            self.on_results_callback(None, [])
     
     def on_search_changed(self, entry):
         """Handle search query changes"""
         query = entry.get_text().strip()
         
+        # Check if actually changed
+        if query == self.last_query:
+            return
+
+        self.last_query = query
+
         if not query:
-            # Empty search - show all memos
+            # Empty search - restore all memos
             if self.on_results_callback:
                 self.on_results_callback(None, [])
             return
         
         # Debounce search
         if hasattr(self, '_search_timeout'):
-            GLib.source_remove(self._search_timeout)
+            try:
+                GLib.source_remove(self._search_timeout)
+            except:
+                pass
         
         self._search_timeout = GLib.timeout_add(300, lambda: self._perform_search(query))
     

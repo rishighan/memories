@@ -138,9 +138,23 @@ class MemoLoader:
             def on_complete():
                 if success and memos:
                     self.page_token = page_token
-                    self.load_initial(memos)
-            
+                    # Clear and reload
+                    self.month_sections = {}
+
+                    # Clear container
+                    child = self.container.get_first_child()
+                    while child:
+                        next_child = child.get_next_sibling()
+                        self.container.remove(child)
+                        child = next_child
+
+                    # Reload grouped memos
+                    grouped = self._group_by_month(memos)
+                    for month_year, month_memos in grouped.items():
+                        self._create_month_section(month_year, month_memos)
+
+                    print(f"Reloaded {len(memos)} memos")
+
             GLib.idle_add(on_complete)
-        
-        import threading
+
         threading.Thread(target=worker, daemon=True).start()

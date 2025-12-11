@@ -24,18 +24,19 @@
 
 /* Status bar height and padding control */
 actionbar {
-    min-height: 20px;
+    min-height: 15px;
     padding: 0;
+    border-top: 1px solid alpha(@borders, 0.3);
 }
 
 actionbar > revealer > box {
-    min-height: 20px;
+    min-height: 15px;
     padding: 8px 12px;
 }
 
 /* Make separators full height - force it */
 actionbar separator.vertical {
-    min-height: 20px;
+    min-height: 15px;
     margin-top: -8px;
     margin-bottom: -8px;
 }
