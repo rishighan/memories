@@ -6,7 +6,7 @@
 
 from gi.repository import GLib
 import threading
-from .memos_api import MemosAPI
+from ..api.memos_api import MemosAPI
 
 
 class ConnectionHandler:

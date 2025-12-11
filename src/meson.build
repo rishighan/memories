@@ -1,5 +1,6 @@
 pkgdatadir = get_option('prefix') / get_option('datadir') / meson.project_name()
 moduledir = pkgdatadir / 'memories'
+
 gnome = import('gnome')
 
 gnome.compile_resources('memories',
@@ -7,6 +8,7 @@ gnome.compile_resources('memories',
   gresource_bundle: true,
   install: true,
   install_dir: pkgdatadir,
+  dependencies: files('window.ui', 'style.css', 'resources/shortcuts-dialog.ui'),
 )
 
 python = import('python')
@@ -23,19 +25,19 @@ configure_file(
   configuration: conf,
   install: true,
   install_dir: get_option('bindir'),
-  install_mode: 'rwxr-xr-x'
+  install_mode: 'r-xr-xr-x'
 )
 
-memories_sources = [
+# Install main Python files
+install_data(
+  '__init__.py',
   'main.py',
   'window.py',
-  'memos_api.py',
-  'memo_row.py',
-  'memo_loader.py',
-  'settings.py',
-  'utils/connection_handler.py',
-  'ui/connection_view.py',
-  'ui/memos_view.py',
-]
+  install_dir: moduledir,
+  preserve_path: true
+)
 
-install_data(memories_sources, install_dir: moduledir)
+# Install subdirectories with all their files
+install_subdir('api', install_dir: moduledir, strip_directory: false)
+install_subdir('ui', install_dir: moduledir, strip_directory: false)
+install_subdir('utils', install_dir: moduledir, strip_directory: false)

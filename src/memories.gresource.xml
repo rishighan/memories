@@ -2,7 +2,7 @@
 <gresources>
   <gresource prefix="/org/quasars/memories">
     <file preprocess="xml-stripblanks">window.ui</file>
-    <file preprocess="xml-stripblanks">shortcuts-dialog.ui</file>
+    <file preprocess="xml-stripblanks">resources/shortcuts-dialog.ui</file>
     <file>style.css</file>
   </gresource>
 </gresources>
