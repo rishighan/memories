@@ -50,34 +50,38 @@ class MemoLoader:
             success, memos, page_token = self.api.get_memos(page_token=self.page_token)
 
             def on_complete():
+                loaded_count = 0
+                has_more = False
+
                 if success and memos:
                     self.page_token = page_token
+                    has_more = page_token is not None
+
                     grouped = self._group_by_month(memos)
 
                     for month_year, month_memos in grouped.items():
                         if month_year in self.month_sections:
-                            # Append to existing section
                             listbox = self.month_sections[month_year]
                             for memo in month_memos:
                                 row = MemoRow.create(memo, self.api, MemoRow.fetch_attachments)
                                 listbox.append(row)
+                                loaded_count += 1
                         else:
-                            # Create new section
                             self._create_month_section(month_year, month_memos)
+                            loaded_count += len(month_memos)
 
-                    print(f"Loaded {len(memos)} more memos")
+                    print(f"Loaded {loaded_count} more memos")
                 else:
                     print("No more memos to load")
                     self.page_token = None
 
                 self.loading_more = False
                 if callback:
-                    callback()
+                    callback(loaded_count, has_more)
 
             GLib.idle_add(on_complete)
 
         threading.Thread(target=worker, daemon=True).start()
-
     def _group_by_month(self, memos):
         """Group memos by month and year"""
         grouped = OrderedDict()

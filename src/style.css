@@ -28,4 +28,28 @@ list > row.month-header {
 list > row.month-header:hover {
     background: none;
 }
+
+.success {
+    color: #26a269;
+}
+
+
+/* Status bar height and padding control */
+actionbar {
+    min-height: 20px;
+    padding: 0;
+}
+
+actionbar > revealer > box {
+    min-height: 20px;
+    padding: 8px 12px;
+}
+
+/* Make separators full height - force it */
+actionbar separator.vertical {
+    min-height: 20px;
+    margin-top: -8px;
+    margin-bottom: -8px;
+}
+
 /* Let Adwaita handle all the entry styling */

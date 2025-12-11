@@ -203,6 +203,66 @@
                     </child>
                   </object>
                 </property>
+                <!-- Status Bar -->
+                <child type="bottom">
+                  <object class="GtkActionBar" id="status_bar">
+                    <property name="revealed">true</property>
+                    <child>
+                      <object class="GtkBox">
+                        <property name="spacing">12</property>
+                        <property name="vexpand">true</property>
+                        <child>
+                          <object class="GtkLabel" id="server_label">
+                            <property name="label">Connected to server</property>
+                            <property name="xalign">0</property>
+                            <style>
+                              <class name="caption"/>
+                              <class name="dim-label"/>
+                            </style>
+                          </object>
+                        </child>
+                        
+                        <child>
+                          <object class="GtkLabel" id="connection_status_label">
+                            <property name="label">●</property>
+                            <property name="tooltip-text">Connected</property>
+                            <style>
+                              <class name="success"/>
+                            </style>
+                          </object>
+                        </child>
+                        
+                        <child>
+                          <object class="GtkSeparator">
+                            <property name="orientation">vertical</property>
+                            <property name="vexpand">true</property>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                    <child type="end">
+                      <object class="GtkBox">
+                        <property name="spacing">12</property>
+                        <property name="vexpand">true</property>
+                        <child>
+                          <object class="GtkSeparator">
+                            <property name="orientation">vertical</property>
+                            <property name="vexpand">true</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkLabel" id="memo_count_label">
+                            <property name="label">0 memos</property>
+                            <style>
+                              <class name="caption"/>
+                              <class name="dim-label"/>
+                            </style>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                </child>
               </object>
             </property>
           </object>

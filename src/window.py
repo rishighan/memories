@@ -13,6 +13,7 @@ from .ui.memos_view import MemosView
 class MemoriesWindow(Adw.ApplicationWindow):
     __gtype_name__ = 'MemoriesWindow'
 
+    # Template children
     main_stack = Gtk.Template.Child()
     url_entry = Gtk.Template.Child()
     token_entry = Gtk.Template.Child()
@@ -20,6 +21,9 @@ class MemoriesWindow(Adw.ApplicationWindow):
     status_label = Gtk.Template.Child()
     memos_container = Gtk.Template.Child()
     scrolled_window = Gtk.Template.Child()
+    server_label = Gtk.Template.Child()
+    connection_status_label = Gtk.Template.Child()
+    memo_count_label = Gtk.Template.Child()
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -43,7 +47,8 @@ class MemoriesWindow(Adw.ApplicationWindow):
 
         self.memos_view = MemosView(
             self.memos_container,
-            self.scrolled_window
+            self.scrolled_window,
+            self.memo_count_label
         )
 
         # Connect views
@@ -51,5 +56,12 @@ class MemoriesWindow(Adw.ApplicationWindow):
 
     def _on_connected(self, api, memos, page_token):
         """Handle successful connection"""
+        # Update status bar
+        self.server_label.set_label(f"Connected to {api.base_url}")
+        self.connection_status_label.set_label("●")
+        self.connection_status_label.set_tooltip_text("Connected")
+        self.memo_count_label.set_label(f"{len(memos)} memos")
+
+        # Load memos and switch view
         self.memos_view.load_memos(api, memos, page_token)
         self.main_stack.set_visible_child_name('memos')
