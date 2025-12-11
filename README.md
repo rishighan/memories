@@ -4,8 +4,8 @@ A native GNOME client for [Memos](https://usememos.com/) - because your notes de
 
 ## Screenshots
 <p align="center">
-  <img src="screenshots/login.png" width="45%" />
-  <img src="screenshots/list.png" width="45%" />
+  <p><img src="screenshots/login.png" width="55%" /></p>
+  <p><img src="screenshots/list.png" width="55%" /></p>
 </p>
 
 ## Status
