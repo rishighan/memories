@@ -2,6 +2,12 @@
 
 A native GNOME client for [Memos](https://usememos.com/) - because your notes deserve a proper desktop home.
 
+## Screenshots
+<p align="center">
+  <img src="screenshots/login.png" width="45%" />
+  <img src="screenshots/list.png" width="45%" />
+</p>
+
 ## Status
 
 **Work in Progress** - Built with love for the Memos ecosystem.
