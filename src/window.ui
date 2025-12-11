@@ -166,18 +166,42 @@
             <property name="child">
               <object class="AdwToolbarView">
                 <child type="top">
-                  <object class="AdwHeaderBar">
-                    <property name="title-widget">
-                      <object class="AdwWindowTitle">
-                        <property name="title" translatable="yes">Your Memos</property>
-                      </object>
-                    </property>
-                    <child type="end">
-                      <object class="GtkMenuButton">
-                        <property name="primary">True</property>
-                        <property name="icon-name">open-menu-symbolic</property>
-                        <property name="tooltip-text" translatable="yes">Main Menu</property>
-                        <property name="menu-model">primary_menu</property>
+                    <object class="AdwHeaderBar">
+                      <property name="title-widget">
+                        <object class="AdwWindowTitle">
+                          <property name="title" translatable="yes">Your Memos</property>
+                        </object>
+                      </property>
+                      <child type="start">
+                        <object class="GtkToggleButton" id="search_button">
+                          <property name="icon-name">system-search-symbolic</property>
+                          <property name="tooltip-text">Search memos</property>
+                        </object>
+                      </child>
+                      <child type="end">
+                        <object class="GtkMenuButton">
+                          <property name="primary">True</property>
+                          <property name="icon-name">open-menu-symbolic</property>
+                          <property name="tooltip-text" translatable="yes">Main Menu</property>
+                          <property name="menu-model">primary_menu</property>
+                        </object>
+                      </child>
+                    </object>
+                </child>
+                
+                <!-- Add search bar after header -->
+                <child type="top">
+                  <object class="GtkSearchBar" id="search_bar">
+                    <property name="search-mode-enabled">false</property>
+                    <child>
+                      <object class="AdwClamp">
+                        <property name="maximum-size">800</property>
+                        <child>
+                          <object class="GtkSearchEntry" id="search_entry">
+                            <property name="placeholder-text">Search memos...</property>
+                            <property name="hexpand">true</property>
+                          </object>
+                        </child>
                       </object>
                     </child>
                   </object>

@@ -90,3 +90,36 @@ class MemosAPI:
             return []
         except:
             return []
+            
+    def search_memos(self, query: str, page_size: int = 50) -> Tuple[bool, List[Dict[str, Any]], str]:
+        """Search memos by content"""
+        try:
+            # Use the v1 API format
+            params = {
+                'filter': f'content.contains("{query}")'
+            }
+            
+            print(f"Searching with params: {params}")
+            
+            response = requests.get(
+                f'{self.base_url}/api/v1/memos',
+                headers=self.headers,
+                params=params,
+                timeout=10
+            )
+            
+            print(f"Search response status: {response.status_code}")
+            print(f"Search URL: {response.url}")
+            
+            if response.status_code == 200:
+                data = response.json()
+                memos = data.get('memos', [])
+                print(f"Found {len(memos)} memos")
+                next_page_token = data.get('nextPageToken', None)
+                return True, memos, next_page_token
+            else:
+                print(f"Search failed: {response.text[:200]}")
+            return False, [], None
+        except Exception as e:
+            print(f"Search error: {e}")
+            return False, [], None

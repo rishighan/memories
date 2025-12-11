@@ -15,24 +15,12 @@
 /* Rounded image thumbnails */
 .thumbnail {
     border-radius: 12px;
-    overflow: hidden;
 }
 
-/* Remove background from month headers */
-list > row.month-header {
-    background: none;
-    border: none;
-    box-shadow: none;
-}
-
-list > row.month-header:hover {
-    background: none;
-}
-
+/* Success indicator color */
 .success {
     color: #26a269;
 }
-
 
 /* Status bar height and padding control */
 actionbar {
@@ -51,5 +39,3 @@ actionbar separator.vertical {
     margin-top: -8px;
     margin-bottom: -8px;
 }
-
-/* Let Adwaita handle all the entry styling */

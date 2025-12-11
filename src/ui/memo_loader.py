@@ -129,3 +129,18 @@ class MemoLoader:
 
         # Track this section
         self.month_sections[month_year] = listbox
+    
+    def reload_from_start(self):
+        """Reload memos from the beginning"""
+        def worker():
+            success, memos, page_token = self.api.get_memos()
+            
+            def on_complete():
+                if success and memos:
+                    self.page_token = page_token
+                    self.load_initial(memos)
+            
+            GLib.idle_add(on_complete)
+        
+        import threading
+        threading.Thread(target=worker, daemon=True).start()

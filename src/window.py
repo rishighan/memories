@@ -7,6 +7,7 @@
 from gi.repository import Adw, Gtk
 from .ui.connection_view import ConnectionView
 from .ui.memos_view import MemosView
+from .ui.search_handler import SearchHandler
 
 
 @Gtk.Template(resource_path='/org/quasars/memories/window.ui')
@@ -24,6 +25,9 @@ class MemoriesWindow(Adw.ApplicationWindow):
     server_label = Gtk.Template.Child()
     connection_status_label = Gtk.Template.Child()
     memo_count_label = Gtk.Template.Child()
+    search_entry = Gtk.Template.Child()
+    search_bar = Gtk.Template.Child()
+    search_button = Gtk.Template.Child()
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -51,6 +55,8 @@ class MemoriesWindow(Adw.ApplicationWindow):
             self.memo_count_label
         )
 
+        self.search_handler = None
+
         # Connect views
         self.connection_view.on_success_callback = self._on_connected
 
@@ -62,6 +68,24 @@ class MemoriesWindow(Adw.ApplicationWindow):
         self.connection_status_label.set_tooltip_text("Connected")
         self.memo_count_label.set_label(f"{len(memos)} memos")
 
+        # Initialize search
+        self.search_handler = SearchHandler(
+            api,
+            self.search_entry,
+            self.search_bar,
+            self.search_button
+        )
+        self.search_handler.on_results_callback = self._on_search_results
+
         # Load memos and switch view
         self.memos_view.load_memos(api, memos, page_token)
         self.main_stack.set_visible_child_name('memos')
+    
+    def _on_search_results(self, query, memos):
+        """Handle search results"""
+        if query is None:
+            # Restore all memos
+            self.memos_view.restore_all_memos()
+        else:
+            # Show search results
+            self.memos_view.show_search_results(memos, query)
