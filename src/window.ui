@@ -178,6 +178,15 @@
                           <property name="tooltip-text">Search memos</property>
                         </object>
                       </child>
+                       <child type="start">
+                        <object class="GtkButton" id="new_memo_button">
+                          <property name="icon-name">list-add-symbolic</property>
+                          <property name="tooltip-text">New memo</property>
+                          <style>
+                            <class name="suggested-action"/>
+                          </style>
+                        </object>
+                      </child>
                       <child type="end">
                         <object class="GtkMenuButton">
                           <property name="primary">True</property>
@@ -295,6 +304,8 @@
       </object>
     </property>
   </template>
+
+
   <menu id="primary_menu">
     <section>
       <item>

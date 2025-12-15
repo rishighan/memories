@@ -8,6 +8,7 @@ from gi.repository import Adw, Gtk
 from .ui.connection_view import ConnectionView
 from .ui.memos_view import MemosView
 from .ui.search_handler import SearchHandler
+from .ui.new_memo_dialog import NewMemoDialog
 
 
 @Gtk.Template(resource_path='/org/quasars/memories/window.ui')
@@ -28,6 +29,7 @@ class MemoriesWindow(Adw.ApplicationWindow):
     search_entry = Gtk.Template.Child()
     search_bar = Gtk.Template.Child()
     search_button = Gtk.Template.Child()
+    new_memo_button = Gtk.Template.Child()
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -56,6 +58,13 @@ class MemoriesWindow(Adw.ApplicationWindow):
         )
 
         self.search_handler = None
+
+        # Create new memo dialog programmatically
+        self.new_memo_dialog = NewMemoDialog()
+        self.new_memo_dialog.on_save_callback = self.on_save_memo
+
+        # Connect new memo button
+        self.new_memo_button.connect('clicked', self.on_new_memo_clicked)
 
         # Connect views
         self.connection_view.on_success_callback = self._on_connected
@@ -89,3 +98,12 @@ class MemoriesWindow(Adw.ApplicationWindow):
         else:
             # Show search results
             self.memos_view.show_search_results(memos, query)
+
+    def on_new_memo_clicked(self, button):
+        """Open new memo dialog"""
+        self.new_memo_dialog.present(self)
+
+    def on_save_memo(self, text):
+        """Save the new memo"""
+        print(f"Saving memo: {text}")
+        # TODO: Call API to save
