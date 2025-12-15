@@ -116,5 +116,19 @@ class MemosView:
         """Restore the full memo list after search"""
         if self.memo_loader:
             self.is_searching = False
-            # Reload from the beginning
+            # Set a callback to update counts after reload
+            original_callback = self.memo_loader.on_reload_complete
+
+            def on_reload(count):
+                self.loaded_memos = count
+                self.total_memos = count
+                if self.memo_loader.page_token:
+                    self.total_memos = None
+                self._update_count()
+
+                # Call original callback if exists
+                if original_callback:
+                    original_callback(count)
+
+            self.memo_loader.on_reload_complete = on_reload
             self.memo_loader.reload_from_start()

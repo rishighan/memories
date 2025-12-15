@@ -20,6 +20,7 @@ class MemoLoader:
         self.page_token = None
         self.loading_more = False
         self.month_sections = {}
+        self.on_reload_complete = None
 
     def load_initial(self, memos):
         """Load initial memos, clearing container"""
@@ -82,6 +83,7 @@ class MemoLoader:
             GLib.idle_add(on_complete)
 
         threading.Thread(target=worker, daemon=True).start()
+
     def _group_by_month(self, memos):
         """Group memos by month and year"""
         grouped = OrderedDict()
@@ -134,7 +136,7 @@ class MemoLoader:
         """Reload memos from the beginning"""
         def worker():
             success, memos, page_token = self.api.get_memos()
-            
+
             def on_complete():
                 if success and memos:
                     self.page_token = page_token
@@ -154,6 +156,10 @@ class MemoLoader:
                         self._create_month_section(month_year, month_memos)
 
                     print(f"Reloaded {len(memos)} memos")
+
+                    # Notify callback
+                    if self.on_reload_complete:
+                        self.on_reload_complete(len(memos))
 
             GLib.idle_add(on_complete)
 
