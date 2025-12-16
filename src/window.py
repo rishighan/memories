@@ -122,8 +122,26 @@ class MemoriesWindow(Adw.ApplicationWindow):
         # Show saving spinner
         self.new_memo_dialog.show_saving()
 
+        # Get attachments
+        attachments = self.new_memo_dialog.attachments.copy()
+
         def worker():
-            success, memo = self.api.create_memo(text)
+            # Upload attachments first
+            resource_names = []
+            for attachment in attachments:
+                success, resource_name = self.api.upload_file(attachment['file'].get_path())
+                if success:
+                    resource_names.append(resource_name)
+
+            # Append resource references to content
+            content = text
+            if resource_names:
+                content += '\n\n'
+                for resource_name in resource_names:
+                    content += f'![](/{resource_name})\n'
+
+            # Create memo
+            success, memo = self.api.create_memo(content)
 
             def on_complete():
                 self.new_memo_dialog.hide_saving()
@@ -131,14 +149,13 @@ class MemoriesWindow(Adw.ApplicationWindow):
                 if success:
                     print("Memo saved successfully!")
 
-                    # Clear buffer
+                    # Close dialog and clear
                     buffer = self.new_memo_dialog.text_view.get_buffer()
                     buffer.set_text('')
-
-                    # Close dialog ONCE
+                    self.new_memo_dialog.attachments.clear()
                     self.new_memo_dialog.close()
 
-                    # Reload memos to show new one at top
+                    # Reload memos
                     self._reload_memos()
                 else:
                     print("Failed to save memo")

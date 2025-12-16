@@ -150,3 +150,34 @@ class MemosAPI:
         except Exception as e:
             print(f"Error creating memo: {e}")
             return False, {}
+
+    def upload_file(self, file_path: str) -> Tuple[bool, str]:
+        """Upload a file and return the resource name"""
+        try:
+            file_name = file_path.split('/')[-1]
+
+            with open(file_path, 'rb') as f:
+                files = {
+                    'file': (file_name, f, 'application/octet-stream')
+                }
+
+                response = requests.post(
+                    f'{self.base_url}/api/v1/resources',
+                    headers={'Authorization': self.headers['Authorization']},
+                    files=files,
+                    timeout=30
+                )
+
+            print(f"Upload response: {response.status_code}")
+
+            if response.status_code in [200, 201]:
+                resource = response.json()
+                resource_name = resource.get('name', '')
+                print(f"Uploaded file: {resource_name}")
+                return True, resource_name
+            else:
+                print(f"Failed to upload: {response.text}")
+                return False, ''
+        except Exception as e:
+            print(f"Error uploading file: {e}")
+            return False, ''
