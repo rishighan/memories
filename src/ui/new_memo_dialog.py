@@ -560,12 +560,19 @@ class NewMemoDialog(Adw.Dialog):
         self.spinner.set_visible(False)
 
     def clear(self):
-        """Clear the text view"""
+        """Clear the text view and attachments"""
+        # Clear text
         self.buffer.set_text('')
+
+        # Clear attachments array
         self.attachments.clear()
-        # Clear attachments list
+
+        # Clear attachments list UI
         child = self.attachments_list.get_first_child()
         while child:
             next_child = child.get_next_sibling()
             self.attachments_list.remove(child)
             child = next_child
+
+        # Update UI (hide list, hide badge)
+        self._update_attachment_ui()

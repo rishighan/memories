@@ -149,10 +149,8 @@ class MemoriesWindow(Adw.ApplicationWindow):
                 if success:
                     print("Memo saved successfully!")
 
-                    # Close dialog and clear
-                    buffer = self.new_memo_dialog.text_view.get_buffer()
-                    buffer.set_text('')
-                    self.new_memo_dialog.attachments.clear()
+                    # Clear everything
+                    self.new_memo_dialog.clear()
                     self.new_memo_dialog.close()
 
                     # Reload memos
