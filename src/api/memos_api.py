@@ -7,7 +7,6 @@
 import requests
 from typing import Optional, Dict, Any, Tuple, List
 
-
 class MemosAPI:
     """Simple Memos API client using Bearer token authentication"""
 
@@ -124,60 +123,152 @@ class MemosAPI:
             print(f"Search error: {e}")
             return False, [], None
 
-    def create_memo(self, content: str) -> Tuple[bool, Dict[str, Any]]:
-        """Create a new memo"""
+    def create_memo_with_attachments(self, content: str, attachments: list) -> Tuple[bool, Dict[str, Any]]:
+        """Create a memo with attachments"""
         try:
-            data = {
+            import base64
+            import os
+
+            # Step 1: Upload attachments first
+            attachment_refs = []
+            for attachment in attachments:
+                file_path = attachment['file'].get_path()
+                file_name = os.path.basename(file_path)
+
+                # Read and encode file
+                with open(file_path, 'rb') as f:
+                    file_content = f.read()
+                    content_base64 = base64.b64encode(file_content).decode('utf-8')
+
+                # Determine MIME type
+                mime_type = 'application/octet-stream'
+                if file_name.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')):
+                    ext = file_name.lower().split('.')[-1]
+                    if ext == 'jpg':
+                        ext = 'jpeg'
+                    mime_type = f'image/{ext}'
+
+                # Create attachment
+                attach_data = {
+                    'filename': file_name,
+                    'type': mime_type,
+                    'content': content_base64
+                }
+
+                response = requests.post(
+                    f'{self.base_url}/api/v1/attachments',
+                    headers=self.headers,
+                    json=attach_data,
+                    timeout=30
+                )
+
+                if response.status_code in [200, 201]:
+                    attach_result = response.json()
+                    attachment_refs.append({
+                        'name': attach_result.get('name', ''),
+                        'filename': file_name,
+                        'type': mime_type
+                    })
+                    print(f"Created attachment: {attach_result.get('name')}")
+                else:
+                    print(f"Failed to create attachment: {response.text}")
+
+            # Step 2: Create memo
+            memo_data = {
                 'content': content
             }
 
             response = requests.post(
                 f'{self.base_url}/api/v1/memos',
                 headers=self.headers,
-                json=data,
+                json=memo_data,
                 timeout=10
             )
 
             print(f"Create memo response: {response.status_code}")
 
-            if response.status_code in [200, 201]:
-                memo = response.json()
-                print(f"Created memo: {memo.get('name', 'unknown')}")
-                return True, memo
-            else:
+            if response.status_code not in [200, 201]:
                 print(f"Failed to create memo: {response.text}")
                 return False, {}
+
+            memo = response.json()
+            memo_name = memo.get('name', '')
+
+            # Step 3: Link attachments to memo
+            if attachment_refs:
+                attach_response = requests.patch(
+                    f'{self.base_url}/api/v1/{memo_name}/attachments',
+                    headers=self.headers,
+                    json={
+                        'attachments': attachment_refs
+                    },
+                    timeout=30
+                )
+
+                print(f"Link attachments response: {attach_response.status_code}")
+                print(f"Link response: {attach_response.text}")
+
+                if attach_response.status_code in [200]:
+                    print(f"Successfully linked {len(attachment_refs)} files")
+                else:
+                    print(f"Failed to link files: {attach_response.text}")
+
+            return True, memo
+
         except Exception as e:
             print(f"Error creating memo: {e}")
+            import traceback
+            traceback.print_exc()
             return False, {}
 
     def upload_file(self, file_path: str) -> Tuple[bool, str]:
         """Upload a file and return the resource name"""
         try:
-            file_name = file_path.split('/')[-1]
+            import os
+
+            file_name = os.path.basename(file_path)
+
+            # Determine MIME type
+            mime_type = 'application/octet-stream'
+            if file_name.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')):
+                ext = file_name.lower().split('.')[-1]
+                if ext == 'jpg':
+                    ext = 'jpeg'
+                mime_type = f'image/{ext}'
+
+            print(f"Uploading: {file_name} ({mime_type})")
 
             with open(file_path, 'rb') as f:
                 files = {
-                    'file': (file_name, f, 'application/octet-stream')
+                    'file': (file_name, f, mime_type)
+                }
+
+                # Use multipart, not JSON
+                headers = {
+                    'Authorization': self.headers['Authorization']
                 }
 
                 response = requests.post(
-                    f'{self.base_url}/api/v1/resources',
-                    headers={'Authorization': self.headers['Authorization']},
+                    f'{self.base_url}/api/v1/attachments',
+                    headers=headers,
                     files=files,
                     timeout=30
                 )
 
             print(f"Upload response: {response.status_code}")
+            print(f"Upload response body: {response.text}")
 
             if response.status_code in [200, 201]:
-                resource = response.json()
-                resource_name = resource.get('name', '')
-                print(f"Uploaded file: {resource_name}")
-                return True, resource_name
+                attachment = response.json()
+                print(f"Full attachment response: {attachment}")
+                attachment_name = attachment.get('name', '')
+                print(f"Uploaded attachment: {attachment_name}")
+                return True, attachment_name
             else:
                 print(f"Failed to upload: {response.text}")
                 return False, ''
         except Exception as e:
             print(f"Error uploading file: {e}")
+            import traceback
+            traceback.print_exc()
             return False, ''

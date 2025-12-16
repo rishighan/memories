@@ -187,9 +187,12 @@ class NewMemoDialog(Adw.Dialog):
 
     def _on_browse_clicked(self, button):
         """Open file chooser dialog"""
+        # Get the parent window
+        parent_window = self.get_root()
+
         dialog = Gtk.FileChooserNative.new(
             "Choose files to attach",
-            self,
+            parent_window,
             Gtk.FileChooserAction.OPEN,
             "Select",
             "Cancel"

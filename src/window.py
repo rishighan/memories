@@ -126,22 +126,11 @@ class MemoriesWindow(Adw.ApplicationWindow):
         attachments = self.new_memo_dialog.attachments.copy()
 
         def worker():
-            # Upload attachments first
-            resource_names = []
-            for attachment in attachments:
-                success, resource_name = self.api.upload_file(attachment['file'].get_path())
-                if success:
-                    resource_names.append(resource_name)
-
-            # Append resource references to content
-            content = text
-            if resource_names:
-                content += '\n\n'
-                for resource_name in resource_names:
-                    content += f'![](/{resource_name})\n'
-
-            # Create memo
-            success, memo = self.api.create_memo(content)
+            # Create memo with attachments in one go
+            if attachments:
+                success, memo = self.api.create_memo_with_attachments(text, attachments)
+            else:
+                success, memo = self.api.create_memo(text)
 
             def on_complete():
                 self.new_memo_dialog.hide_saving()
