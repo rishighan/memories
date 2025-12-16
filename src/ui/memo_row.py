@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from gi.repository import Gtk, GLib, Gdk, GdkPixbuf
+from gi.repository import Gtk, GLib, Gdk, GdkPixbuf, Pango
 import threading
 import requests
 
@@ -14,78 +14,139 @@ class MemoRow:
 
     @staticmethod
     def create(memo, api, fetch_attachments_callback):
-        """Create a row for a memo with custom two-column layout"""
-        list_row = Gtk.ListBoxRow()
-        list_row.set_activatable(True)
+        """Create a memo row"""
+        row = Gtk.ListBoxRow()
+        row.set_activatable(False)
 
-        # Main horizontal box
-        main_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=20)
-        main_box.set_margin_top(20)
-        main_box.set_margin_bottom(20)
-        main_box.set_margin_start(20)
-        main_box.set_margin_end(20)
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        box.set_margin_top(12)
+        box.set_margin_bottom(12)
+        box.set_margin_start(12)
+        box.set_margin_end(12)
 
-        # Left column: Image placeholder (160x160) - hidden by default
-        image_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        image_box.set_size_request(160, 160)
-        image_box.set_valign(Gtk.Align.START)
-        image_box.set_visible(False)
+        # Check for attachments
+        attachments = memo.get('resources', [])
+        if not attachments:
+            attachments = memo.get('attachments', [])
 
-        placeholder = Gtk.Box()
-        placeholder.set_size_request(160, 160)
-        image_box.append(placeholder)
+        image_attachments = [a for a in attachments if a.get('type', '').startswith('image/')]
 
-        main_box.append(image_box)
+        # Show thumbnail with stack effect for multiple images
+        if image_attachments:
+            if len(image_attachments) > 1:
+                # Create overlay for stack effect
+                overlay = Gtk.Overlay()
 
-        # Right column: Text content
-        text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        text_box.set_hexpand(True)
-        text_box.set_valign(Gtk.Align.CENTER)
+                # Base thumbnail (bottom of stack)
+                base_box = Gtk.Box()
+                base_box.set_size_request(160, 160)
+                base_box.add_css_class("thumbnail")
+
+                base_image = Gtk.Picture()
+                base_image.set_size_request(160, 160)
+                base_image.set_can_shrink(True)
+                base_image.add_css_class("thumbnail")
+
+                base_box.append(base_image)
+                overlay.set_child(base_box)
+
+                # Add stacked card indicators (show that there are more)
+                for i in range(1, min(3, len(image_attachments))):
+                    stack_indicator = Gtk.Box()
+                    stack_indicator.set_size_request(150 - (i * 8), 150 - (i * 8))
+                    stack_indicator.add_css_class("card")
+                    stack_indicator.set_margin_start(5 + (i * 4))
+                    stack_indicator.set_margin_top(5 + (i * 4))
+                    stack_indicator.set_halign(Gtk.Align.END)
+                    stack_indicator.set_valign(Gtk.Align.START)
+                    stack_indicator.set_opacity(0.8 - (i * 0.2))
+
+                    overlay.add_overlay(stack_indicator)
+
+                # Badge showing count
+                if len(image_attachments) > 1:
+                    # Badge container with dark background
+                    badge_container = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+                    badge_container.set_halign(Gtk.Align.END)
+                    badge_container.set_valign(Gtk.Align.END)
+                    badge_container.set_margin_end(8)
+                    badge_container.set_margin_bottom(8)
+
+                    badge_label = Gtk.Label(label=f"+{len(image_attachments) - 1}")
+                    badge_label.add_css_class("heading")
+                    badge_label.set_margin_start(8)
+                    badge_label.set_margin_end(8)
+                    badge_label.set_margin_top(4)
+                    badge_label.set_margin_bottom(4)
+
+                    badge_container.append(badge_label)
+                    badge_container.add_css_class("osd")  # Adds dark semi-transparent background
+
+                    overlay.add_overlay(badge_container)
+
+                box.append(overlay)
+
+                # Fetch first image for the base
+                memo_name = memo.get('name', '')
+                fetch_attachments_callback(base_box, base_image, memo_name, api)
+
+            else:
+                # Single image - no stack
+                thumbnail_box = Gtk.Box()
+                thumbnail_box.set_size_request(160, 160)
+                thumbnail_box.add_css_class("thumbnail")
+
+                image = Gtk.Picture()
+                image.set_size_request(160, 160)
+                image.set_can_shrink(True)
+                image.add_css_class("thumbnail")
+
+                thumbnail_box.append(image)
+                box.append(thumbnail_box)
+
+                memo_name = memo.get('name', '')
+                fetch_attachments_callback(thumbnail_box, image, memo_name, api)
 
         # Content
-        content = memo.get('content', '[No content]')
-        if len(content) > 250:
-            preview = content[:250] + '...'
-        else:
-            preview = content if content.strip() else '[Empty memo]'
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        content_box.set_hexpand(True)
 
-        content_label = Gtk.Label(label=preview)
-        content_label.set_wrap(True)
-        content_label.set_xalign(0)
-        content_label.set_halign(Gtk.Align.START)
-        content_label.add_css_class('body')
-        text_box.append(content_label)
+        # Memo text
+        content = memo.get('content', '')[:200]
+        if len(memo.get('content', '')) > 200:
+            content += '...'
 
-        # Timestamp
-        created_ts = memo.get('createTime', '')
-        if created_ts:
-            import datetime
-            try:
-                dt = datetime.datetime.fromisoformat(created_ts.replace('Z', '+00:00'))
-                time_label = Gtk.Label(label=dt.strftime('%B %d, %Y at %I:%M %p'))
-                time_label.set_xalign(0)
-                time_label.set_halign(Gtk.Align.START)
-                time_label.add_css_class('dim-label')
-                time_label.add_css_class('caption')
-                text_box.append(time_label)
-            except:
-                pass
+        text_label = Gtk.Label(label=content)
+        text_label.set_xalign(0)
+        text_label.set_wrap(True)
+        text_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR)
+        text_label.set_max_width_chars(50)
+        content_box.append(text_label)
 
-        main_box.append(text_box)
+        # Date
+        create_time = memo.get('createTime', '')
+        if create_time:
+            from datetime import datetime
+            dt = datetime.fromisoformat(create_time.replace('Z', '+00:00'))
+            date_str = dt.strftime('%B %d, %Y at %I:%M %p')
 
-        # Chevron
-        chevron = Gtk.Image.new_from_icon_name('go-next-symbolic')
-        chevron.set_valign(Gtk.Align.CENTER)
-        main_box.append(chevron)
+            date_label = Gtk.Label(label=date_str)
+            date_label.set_xalign(0)
+            date_label.add_css_class('caption')
+            date_label.add_css_class('dim-label')
+            content_box.append(date_label)
 
-        list_row.set_child(main_box)
+        box.append(content_box)
 
-        # Fetch attachments
-        memo_name = memo.get('name', '')
-        if memo_name:
-            fetch_attachments_callback(image_box, placeholder, memo_name, api)
+        # Arrow
+        arrow = Gtk.Image.new_from_icon_name('go-next-symbolic')
+        arrow.set_valign(Gtk.Align.CENTER)
+        box.append(arrow)
 
-        return list_row
+        row.set_child(box)
+        return row
+
+
 
     @staticmethod
     def fetch_attachments(image_box, placeholder, memo_name, api):
@@ -164,3 +225,82 @@ class MemoRow:
             image_box.set_visible(True)
         except Exception as e:
             print(f"Error creating thumbnail: {e}")
+
+    @staticmethod
+    def _create_thumbnail_stack(memo, api, fetch_attachments_callback):
+        """Create a stacked thumbnail view for multiple attachments"""
+        overlay = Gtk.Overlay()
+
+        # Get attachments
+        attachments = memo.get('resources', [])
+        if not attachments:
+            attachments = memo.get('attachments', [])
+
+        image_attachments = [a for a in attachments if a.get('type', '').startswith('image/')]
+
+        if not image_attachments:
+            return None
+
+        # Limit to first 3 images for stack effect
+        display_count = min(len(image_attachments), 3)
+
+        # Base image (largest, bottom of stack)
+        base_box = Gtk.Box()
+        base_box.set_size_request(160, 160)
+        base_box.add_css_class("thumbnail")
+
+        base_image = Gtk.Picture()
+        base_image.set_size_request(160, 160)
+        base_image.set_can_shrink(True)
+        base_image.add_css_class("thumbnail")
+
+        base_box.append(base_image)
+        overlay.set_child(base_box)
+
+        # Add stacked images on top with offset
+        if display_count > 1:
+            for i in range(1, display_count):
+                offset_box = Gtk.Box()
+                offset_box.set_size_request(140 - (i * 10), 140 - (i * 10))
+                offset_box.add_css_class("thumbnail")
+                offset_box.set_margin_start(10 + (i * 5))
+                offset_box.set_margin_top(10 + (i * 5))
+                offset_box.set_halign(Gtk.Align.END)
+                offset_box.set_valign(Gtk.Align.START)
+
+                # Add semi-transparent background
+                offset_box.set_opacity(0.9)
+
+                stacked_image = Gtk.Picture()
+                stacked_image.set_size_request(140 - (i * 10), 140 - (i * 10))
+                stacked_image.set_can_shrink(True)
+                stacked_image.add_css_class("thumbnail")
+
+                offset_box.append(stacked_image)
+                overlay.add_overlay(offset_box)
+
+        # If more than 3, show count badge
+        if len(image_attachments) > 3:
+            badge_box = Gtk.Box()
+            badge_box.set_halign(Gtk.Align.END)
+            badge_box.set_valign(Gtk.Align.END)
+            badge_box.set_margin_end(8)
+            badge_box.set_margin_bottom(8)
+
+            badge_label = Gtk.Label(label=f"+{len(image_attachments) - 3}")
+            badge_label.add_css_class("caption")
+            badge_label.set_margin_start(8)
+            badge_label.set_margin_end(8)
+            badge_label.set_margin_top(4)
+            badge_label.set_margin_bottom(4)
+
+            # Add background to badge
+            badge_box.append(badge_label)
+            badge_box.add_css_class("card")
+
+            overlay.add_overlay(badge_box)
+
+        # Fetch and load images
+        fetch_attachments_callback(memo, api, base_image, image_attachments)
+
+        return overlay

@@ -32,3 +32,8 @@ actionbar > revealer > box {
     min-height: 15px;
     padding: 8px 12px;
 }
+
+/* Rounded badge on thumbnails */
+overlay > .osd {
+    border-radius: 20px;
+}
