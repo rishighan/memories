@@ -265,24 +265,12 @@
                           </object>
                         </child>
                         
-                        <child>
-                          <object class="GtkSeparator">
-                            <property name="orientation">vertical</property>
-                            <property name="vexpand">true</property>
-                          </object>
-                        </child>
                       </object>
                     </child>
                     <child type="end">
                       <object class="GtkBox">
                         <property name="spacing">12</property>
                         <property name="vexpand">true</property>
-                        <child>
-                          <object class="GtkSeparator">
-                            <property name="orientation">vertical</property>
-                            <property name="vexpand">true</property>
-                          </object>
-                        </child>
                         <child>
                           <object class="GtkLabel" id="memo_count_label">
                             <property name="label">0 memos</property>

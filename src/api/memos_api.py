@@ -123,3 +123,30 @@ class MemosAPI:
         except Exception as e:
             print(f"Search error: {e}")
             return False, [], None
+
+    def create_memo(self, content: str) -> Tuple[bool, Dict[str, Any]]:
+        """Create a new memo"""
+        try:
+            data = {
+                'content': content
+            }
+
+            response = requests.post(
+                f'{self.base_url}/api/v1/memos',
+                headers=self.headers,
+                json=data,
+                timeout=10
+            )
+
+            print(f"Create memo response: {response.status_code}")
+
+            if response.status_code in [200, 201]:
+                memo = response.json()
+                print(f"Created memo: {memo.get('name', 'unknown')}")
+                return True, memo
+            else:
+                print(f"Failed to create memo: {response.text}")
+                return False, {}
+        except Exception as e:
+            print(f"Error creating memo: {e}")
+            return False, {}

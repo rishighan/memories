@@ -42,9 +42,13 @@ class NewMemoDialog(Adw.Dialog):
         scrolled.set_vexpand(True)
         scrolled.set_child(self.text_view)
 
-        # Save button
+        # Save button - text only
         self.save_button = Gtk.Button(label="Save")
         self.save_button.add_css_class("suggested-action")
+
+        # Spinner for save progress
+        self.spinner = Gtk.Spinner()
+        self.spinner.set_visible(False)
 
         # Cancel button
         cancel_button = Gtk.Button(label="Cancel")
@@ -55,6 +59,7 @@ class NewMemoDialog(Adw.Dialog):
         header.set_title_widget(Adw.WindowTitle(title="New Memo"))
         header.pack_start(cancel_button)
         header.pack_end(self.save_button)
+        header.pack_end(self.spinner)
 
         # Toolbar view
         toolbar_view = Adw.ToolbarView()
@@ -303,6 +308,18 @@ class NewMemoDialog(Adw.Dialog):
         # Clear and close
         self.buffer.set_text('')
         self.close()
+
+    def show_saving(self):
+        """Show saving state"""
+        self.save_button.set_sensitive(False)
+        self.spinner.start()
+        self.spinner.set_visible(True)
+
+    def hide_saving(self):
+        """Hide saving state"""
+        self.save_button.set_sensitive(True)
+        self.spinner.stop()
+        self.spinner.set_visible(False)
 
     def clear(self):
         """Clear the text view"""

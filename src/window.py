@@ -4,7 +4,8 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from gi.repository import Adw, Gtk
+from gi.repository import Adw, Gtk, GLib
+import threading
 from .ui.connection_view import ConnectionView
 from .ui.memos_view import MemosView
 from .ui.search_handler import SearchHandler
@@ -43,6 +44,9 @@ class MemoriesWindow(Adw.ApplicationWindow):
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
 
+        # Initialize API
+        self.api = None
+
         # Initialize views
         self.connection_view = ConnectionView(
             self.url_entry,
@@ -71,6 +75,7 @@ class MemoriesWindow(Adw.ApplicationWindow):
 
     def _on_connected(self, api, memos, page_token):
         """Handle successful connection"""
+        self.api = api
         # Update status bar
         self.server_label.set_label(f"Connected to {api.base_url}")
         self.connection_status_label.set_label("●")
@@ -105,5 +110,58 @@ class MemoriesWindow(Adw.ApplicationWindow):
 
     def on_save_memo(self, text):
         """Save the new memo"""
-        print(f"Saving memo: {text}")
-        # TODO: Call API to save
+        if not text.strip():
+            print("Empty memo, not saving")
+            self.new_memo_dialog.close()
+            return
+
+        if not self.api:
+            print("No API connection")
+            return
+
+        # Show saving spinner
+        self.new_memo_dialog.show_saving()
+
+        def worker():
+            success, memo = self.api.create_memo(text)
+
+            def on_complete():
+                self.new_memo_dialog.hide_saving()
+
+                if success:
+                    print("Memo saved successfully!")
+
+                    # Clear buffer
+                    buffer = self.new_memo_dialog.text_view.get_buffer()
+                    buffer.set_text('')
+
+                    # Close dialog ONCE
+                    self.new_memo_dialog.close()
+
+                    # Reload memos to show new one at top
+                    self._reload_memos()
+                else:
+                    print("Failed to save memo")
+
+            GLib.idle_add(on_complete)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _reload_memos(self):
+        """Reload the memo list from scratch"""
+        def worker():
+            success, memos, page_token = self.api.get_memos()
+
+            def on_complete():
+                if success:
+                    self.memos_view.memo_loader.page_token = page_token
+                    self.memos_view.memo_loader.load_initial(memos)
+                    self.memos_view.loaded_memos = len(memos)
+                    self.memos_view.total_memos = len(memos)
+                    if page_token:
+                        self.memos_view.total_memos = None
+                    self.memos_view._update_count()
+
+            GLib.idle_add(on_complete)
+
+        threading.Thread(target=worker, daemon=True).start()
