@@ -272,3 +272,131 @@ class MemosAPI:
             import traceback
             traceback.print_exc()
             return False, ''
+
+    def update_memo(self, memo_name: str, content: str) -> Tuple[bool, Dict[str, Any]]:
+        """Update an existing memo"""
+        try:
+            data = {
+                'content': content
+            }
+
+            response = requests.patch(
+                f'{self.base_url}/api/v1/{memo_name}',
+                headers=self.headers,
+                json=data,
+                timeout=10
+            )
+
+            print(f"Update memo response: {response.status_code}")
+
+            if response.status_code in [200, 201]:
+                memo = response.json()
+                return True, memo
+            else:
+                print(f"Failed to update memo: {response.text}")
+                return False, {}
+        except Exception as e:
+            print(f"Error updating memo: {e}")
+            return False, {}
+
+    def update_memo_with_attachments(self, memo_name: str, content: str, new_attachments: list, existing_attachments: list = None) -> Tuple[bool, Dict[str, Any]]:
+        """Update a memo and add new attachments"""
+        try:
+            import base64
+            import os
+
+            # Start with existing attachments
+            attachment_refs = []
+            if existing_attachments:
+                for attach in existing_attachments:
+                    attachment_refs.append({
+                        'name': attach.get('name', ''),
+                        'filename': attach.get('filename', ''),
+                        'type': attach.get('type', '')
+                    })
+
+            # Upload new attachments
+            for attachment in new_attachments:
+                file_path = attachment['file'].get_path()
+                file_name = os.path.basename(file_path)
+
+                with open(file_path, 'rb') as f:
+                    file_content = f.read()
+                    content_base64 = base64.b64encode(file_content).decode('utf-8')
+
+                mime_type = 'application/octet-stream'
+                if file_name.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')):
+                    ext = file_name.lower().split('.')[-1]
+                    if ext == 'jpg':
+                        ext = 'jpeg'
+                    mime_type = f'image/{ext}'
+
+                attach_data = {
+                    'filename': file_name,
+                    'type': mime_type,
+                    'content': content_base64
+                }
+
+                response = requests.post(
+                    f'{self.base_url}/api/v1/attachments',
+                    headers=self.headers,
+                    json=attach_data,
+                    timeout=30
+                )
+
+                if response.status_code in [200, 201]:
+                    attach_result = response.json()
+                    attachment_refs.append({
+                        'name': attach_result.get('name', ''),
+                        'filename': file_name,
+                        'type': mime_type
+                    })
+                    print(f"Created attachment: {attach_result.get('name')}")
+                else:
+                    print(f"Failed to create attachment: {response.text}")
+
+            # Update memo content
+            success, memo = self.update_memo(memo_name, content)
+
+            if not success:
+                return False, {}
+
+            # Link ALL attachments (existing + new)
+            if attachment_refs:
+                attach_response = requests.patch(
+                    f'{self.base_url}/api/v1/{memo_name}/attachments',
+                    headers=self.headers,
+                    json={'attachments': attachment_refs},
+                    timeout=30
+                )
+
+                print(f"Link attachments response: {attach_response.status_code}")
+
+                if attach_response.status_code in [200]:
+                    print(f"Linked {len(attachment_refs)} attachments")
+                else:
+                    print(f"Failed to link attachments: {attach_response.text}")
+
+            return True, memo
+
+        except Exception as e:
+            print(f"Error updating memo with attachments: {e}")
+            import traceback
+            traceback.print_exc()
+            return False, {}
+
+    def delete_memo(self, memo_name: str) -> bool:
+        """Delete a memo"""
+        try:
+            response = requests.delete(
+                f'{self.base_url}/api/v1/{memo_name}',
+                headers=self.headers,
+                timeout=10
+            )
+
+            print(f"Delete memo response: {response.status_code}")
+
+            return response.status_code in [200, 204]
+        except Exception as e:
+            print(f"Error deleting memo: {e}")
+            return False

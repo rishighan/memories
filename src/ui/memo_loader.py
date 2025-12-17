@@ -22,6 +22,7 @@ class MemoLoader:
         self.loading_more = False
         self.month_sections = {}
         self.on_reload_complete = None
+        self.on_memo_clicked = None  # Add this
 
     def load_initial(self, memos):
         """Load initial memos, clearing container"""
@@ -120,8 +121,11 @@ class MemoLoader:
 
         # ListBox for this month's memos
         listbox = Gtk.ListBox()
-        listbox.set_selection_mode(Gtk.SelectionMode.NONE)
+        listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
         listbox.add_css_class('boxed-list')
+
+        # Connect row activation
+        listbox.connect('row-activated', self._on_row_activated)
 
         for memo in memos:
             row = MemoRow.create(memo, self.api, MemoRow.fetch_attachments)
@@ -133,6 +137,11 @@ class MemoLoader:
 
         # Track this section
         self.month_sections[month_year] = listbox
+
+    def _on_row_activated(self, listbox, row):
+        """Handle row click"""
+        if hasattr(row, 'memo_data') and self.on_memo_clicked:
+            self.on_memo_clicked(row.memo_data)
     
     def reload_from_start(self):
         """Reload memos from the beginning"""

@@ -9,7 +9,7 @@ import threading
 from .ui.connection_view import ConnectionView
 from .ui.memos_view import MemosView
 from .ui.search_handler import SearchHandler
-from .ui.new_memo_dialog import NewMemoDialog
+from .ui.memo_edit_view import MemoEditView
 
 
 @Gtk.Template(resource_path='/org/quasars/memories/window.ui')
@@ -31,6 +31,15 @@ class MemoriesWindow(Adw.ApplicationWindow):
     search_bar = Gtk.Template.Child()
     search_button = Gtk.Template.Child()
     new_memo_button = Gtk.Template.Child()
+
+    # Edit screen children
+    memo_edit_content = Gtk.Template.Child()
+    memo_edit_title = Gtk.Template.Child()
+    edit_back_button = Gtk.Template.Child()
+    save_memo_button = Gtk.Template.Child()
+    save_spinner = Gtk.Template.Child()
+    delete_memo_button = Gtk.Template.Child()
+    attach_button = Gtk.Template.Child()
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -63,12 +72,21 @@ class MemoriesWindow(Adw.ApplicationWindow):
 
         self.search_handler = None
 
-        # Create new memo dialog programmatically
-        self.new_memo_dialog = NewMemoDialog()
-        self.new_memo_dialog.on_save_callback = self.on_save_memo
+        # Initialize edit view
+        self.memo_edit_view = MemoEditView(
+            self.memo_edit_content,
+            self.memo_edit_title,
+            self.save_memo_button,
+            self.save_spinner,
+            self.delete_memo_button,
+            self.attach_button
+        )
+        self.memo_edit_view.on_save_callback = self._on_save_memo
+        self.memo_edit_view.on_delete_callback = self._on_delete_memo
 
-        # Connect new memo button
-        self.new_memo_button.connect('clicked', self.on_new_memo_clicked)
+        # Connect buttons
+        self.new_memo_button.connect('clicked', self._on_new_memo_clicked)
+        self.edit_back_button.connect('clicked', self._on_back_clicked)
 
         # Connect views
         self.connection_view.on_success_callback = self._on_connected
@@ -76,6 +94,7 @@ class MemoriesWindow(Adw.ApplicationWindow):
     def _on_connected(self, api, memos, page_token):
         """Handle successful connection"""
         self.api = api
+
         # Update status bar
         self.server_label.set_label(f"Connected to {api.base_url}")
         self.connection_status_label.set_label("●")
@@ -94,56 +113,70 @@ class MemoriesWindow(Adw.ApplicationWindow):
         # Load memos and switch view
         self.memos_view.load_memos(api, memos, page_token)
         self.main_stack.set_visible_child_name('memos')
+
+        # Set click callback
+        self.memos_view.memo_loader.on_memo_clicked = self._on_memo_clicked
     
     def _on_search_results(self, query, memos):
         """Handle search results"""
         if query is None:
-            # Restore all memos
             self.memos_view.restore_all_memos()
         else:
-            # Show search results
             self.memos_view.show_search_results(memos, query)
 
-    def on_new_memo_clicked(self, button):
-        """Open new memo dialog"""
-        self.new_memo_dialog.present(self)
+    def _on_new_memo_clicked(self, button):
+        """Open edit screen for new memo"""
+        self.memo_edit_view.load_memo(None)
+        self.main_stack.set_visible_child_name('memo_edit')
 
-    def on_save_memo(self, text):
-        """Save the new memo"""
+    def _on_memo_clicked(self, memo):
+        """Open edit screen for existing memo"""
+        self.memo_edit_view.load_memo(memo)
+        self.main_stack.set_visible_child_name('memo_edit')
+
+    def _on_back_clicked(self, button):
+        """Go back to memo list"""
+        self.main_stack.set_visible_child_name('memos')
+
+    def _on_save_memo(self, memo, text, attachments):
+        """Save memo (create or update)"""
         if not text.strip():
             print("Empty memo, not saving")
-            self.new_memo_dialog.close()
+            self._on_back_clicked(None)
             return
 
         if not self.api:
             print("No API connection")
             return
 
-        # Show saving spinner
-        self.new_memo_dialog.show_saving()
+        self.memo_edit_view.show_saving()
 
-        # Get attachments
-        attachments = self.new_memo_dialog.attachments.copy()
+        # Get existing attachments from the edit view
+        existing_attachments = self.memo_edit_view.existing_attachments
 
         def worker():
-            # Create memo with attachments in one go
-            if attachments:
-                success, memo = self.api.create_memo_with_attachments(text, attachments)
+            if memo:
+                # Update existing memo
+                if attachments:
+                    success, result = self.api.update_memo_with_attachments(
+                        memo.get('name'), text, attachments, existing_attachments
+                    )
+                else:
+                    success, result = self.api.update_memo(memo.get('name'), text)
             else:
-                success, memo = self.api.create_memo(text)
+                # Create new memo
+                if attachments:
+                    success, result = self.api.create_memo_with_attachments(text, attachments)
+                else:
+                    success, result = self.api.create_memo(text)
 
             def on_complete():
-                self.new_memo_dialog.hide_saving()
+                self.memo_edit_view.hide_saving()
 
                 if success:
                     print("Memo saved successfully!")
-
-                    # Clear everything
-                    self.new_memo_dialog.clear()
-                    self.new_memo_dialog.close()
-
-                    # Reload memos
                     self._reload_memos()
+                    self.main_stack.set_visible_child_name('memos')
                 else:
                     print("Failed to save memo")
 
@@ -151,8 +184,30 @@ class MemoriesWindow(Adw.ApplicationWindow):
 
         threading.Thread(target=worker, daemon=True).start()
 
+    def _on_delete_memo(self, memo):
+        """Delete a memo"""
+        if not self.api or not memo:
+            return
+
+        memo_name = memo.get('name')
+
+        def worker():
+            success = self.api.delete_memo(memo_name)
+
+            def on_complete():
+                if success:
+                    print("Memo deleted successfully!")
+                    self._reload_memos()
+                    self.main_stack.set_visible_child_name('memos')
+                else:
+                    print("Failed to delete memo")
+
+            GLib.idle_add(on_complete)
+
+        threading.Thread(target=worker, daemon=True).start()
+
     def _reload_memos(self):
-        """Reload the memo list from scratch"""
+        """Reload the memo list"""
         def worker():
             success, memos, page_token = self.api.get_memos()
 
@@ -160,6 +215,7 @@ class MemoriesWindow(Adw.ApplicationWindow):
                 if success:
                     self.memos_view.memo_loader.page_token = page_token
                     self.memos_view.memo_loader.load_initial(memos)
+                    self.memos_view.heatmap.set_memos(memos)
                     self.memos_view.loaded_memos = len(memos)
                     self.memos_view.total_memos = len(memos)
                     if page_token:

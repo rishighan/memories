@@ -16,7 +16,10 @@ class MemoRow:
     def create(memo, api, fetch_attachments_callback):
         """Create a memo row"""
         row = Gtk.ListBoxRow()
-        row.set_activatable(False)
+        row.set_activatable(True)
+
+        # Store memo data on the row for retrieval
+        row.memo_data = memo
 
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         box.set_margin_top(12)
@@ -145,8 +148,6 @@ class MemoRow:
 
         row.set_child(box)
         return row
-
-
 
     @staticmethod
     def fetch_attachments(image_box, placeholder, memo_name, api):

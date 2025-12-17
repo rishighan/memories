@@ -197,7 +197,7 @@
                       </child>
                     </object>
                 </child>
-                
+
                 <!-- Add search bar after header -->
                 <child type="top">
                   <object class="GtkSearchBar" id="search_bar">
@@ -289,6 +289,67 @@
           </object>
         </child>
 
+        <!-- Memo Edit Screen -->
+        <child>
+          <object class="GtkStackPage">
+            <property name="name">memo_edit</property>
+            <property name="child">
+              <object class="AdwToolbarView">
+                <child type="top">
+                  <object class="AdwHeaderBar">
+                    <property name="title-widget">
+                      <object class="AdwWindowTitle" id="memo_edit_title">
+                        <property name="title" translatable="yes">New Memo</property>
+                      </object>
+                    </property>
+                    <child type="start">
+                      <object class="GtkButton" id="edit_back_button">
+                        <property name="icon-name">go-previous-symbolic</property>
+                        <property name="tooltip-text">Back to list</property>
+                      </object>
+                    </child>
+                    <child type="start">
+                      <object class="GtkButton" id="attach_button">
+                        <property name="icon-name">mail-attachment-symbolic</property>
+                        <property name="tooltip-text">Add attachments</property>
+                      </object>
+                    </child>
+                    <child type="end">
+                      <object class="GtkButton" id="save_memo_button">
+                        <property name="label">Save</property>
+                        <style>
+                          <class name="suggested-action"/>
+                        </style>
+                      </object>
+                    </child>
+                    <child type="end">
+                      <object class="GtkSpinner" id="save_spinner">
+                        <property name="visible">false</property>
+                      </object>
+                    </child>
+                    <child type="end">
+                      <object class="GtkButton" id="delete_memo_button">
+                        <property name="icon-name">user-trash-symbolic</property>
+                        <property name="tooltip-text">Delete memo</property>
+                        <property name="visible">false</property>
+                        <style>
+                          <class name="destructive-action"/>
+                        </style>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <property name="content">
+                  <object class="GtkBox" id="memo_edit_content">
+                    <property name="orientation">vertical</property>
+                    <property name="vexpand">true</property>
+                  </object>
+                </property>
+              </object>
+            </property>
+          </object>
+        </child>
+
       </object>
     </property>
   </template>
@@ -311,4 +372,3 @@
     </section>
   </menu>
 </interface>
-
