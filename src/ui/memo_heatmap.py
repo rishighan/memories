@@ -116,11 +116,11 @@ class MemoHeatmap(Gtk.DrawingArea):
 
         # Draw month label using Pango
         font_desc = Pango.FontDescription()
-        font_desc.set_size(14 * Pango.SCALE)
+        font_desc.set_size(18 * Pango.SCALE)
         font_desc.set_weight(Pango.Weight.MEDIUM)
         layout.set_font_description(font_desc)
 
-        month_name = first_day.strftime("%B %Y")
+        month_name = first_day.strftime("This month's activity")
         layout.set_text(month_name, -1)
 
         cr.set_source_rgba(0.5, 0.5, 0.5, 1.0)
@@ -178,7 +178,8 @@ class MemoHeatmap(Gtk.DrawingArea):
 
                 # Draw count inside cell
                 if count > 0:
-                    layout.set_text(str(count), -1)
+                    display_text = str(count) if count < 100 else "99+"
+                    layout.set_text(display_text, -1)
                     ink_rect, logical_rect = layout.get_pixel_extents()
                     text_x = x + (cell_size - logical_rect.width) / 2
                     text_y = y + (cell_size - logical_rect.height) / 2
