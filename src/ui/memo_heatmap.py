@@ -164,20 +164,21 @@ class MemoHeatmap(Gtk.DrawingArea):
                 # Get count for this day
                 date = datetime(self.current_year, self.current_month, day).date()
                 count = self.memo_counts.get(date, 0)
-                color = self._get_color_for_count(count)
-                text_color = self._get_text_color_for_count(count)
 
                 # Draw cell
                 x = x_offset + col * (cell_size + cell_gap)
                 y = y_offset + row * (cell_size + cell_gap)
 
-                # Rounded rectangle
-                cr.set_source_rgba(*color)
-                self._draw_rounded_rect(cr, x, y, cell_size, cell_size, cell_radius)
-                cr.fill()
-
-                # Draw count inside cell
                 if count > 0:
+                    # Filled cell with color
+                    color = self._get_color_for_count(count)
+                    text_color = self._get_text_color_for_count(count)
+
+                    cr.set_source_rgba(*color)
+                    self._draw_rounded_rect(cr, x, y, cell_size, cell_size, cell_radius)
+                    cr.fill()
+
+                    # Draw count inside cell
                     display_text = str(count) if count < 100 else "99+"
                     layout.set_text(display_text, -1)
                     ink_rect, logical_rect = layout.get_pixel_extents()
@@ -187,5 +188,10 @@ class MemoHeatmap(Gtk.DrawingArea):
                     cr.set_source_rgba(*text_color)
                     cr.move_to(text_x, text_y)
                     PangoCairo.show_layout(cr, layout)
+                else:
+                    # Empty cell - transparent grey with 0.4 opacity
+                    cr.set_source_rgba(0.6, 0.6, 0.6, 0.4)
+                    self._draw_rounded_rect(cr, x, y, cell_size, cell_size, cell_radius)
+                    cr.fill()
 
                 day += 1
