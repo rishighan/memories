@@ -6,5 +6,10 @@
     <file>style.css</file>
     <file>icons/check-plain-symbolic.svg</file>
     <file>icons/check-round-outline-symbolic.svg</file>
+    <file>icons/chain-link-symbolic.svg</file>
+    <file>icons/sentiment-very-satisfied-symbolic.svg</file>
+    <file>icons/tag-outline-symbolic.svg</file>
+    <file>icons/chat-bubble-empty-symbolic.svg</file>
+    <file>icons/pin-symbolic.svg</file>
   </gresource>
 </gresources>

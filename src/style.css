@@ -52,3 +52,9 @@ overlay > .osd {
 .toolbar .status-error {
     color: @error_color;
 }
+
+.metadata-chips .pill {
+    padding: 6px 12px;
+    min-height: 0;
+    color: transparent none;
+}

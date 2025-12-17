@@ -3,6 +3,7 @@
 
 from gi.repository import Adw, Gtk, GLib, Pango, Gio, Gdk
 import re
+import threading
 
 
 class MemoEditView:
@@ -19,6 +20,7 @@ class MemoEditView:
         self.existing_attachments = []
         self.on_save_callback = None
         self.on_delete_callback = None
+        self.api = None
 
         # Autosave state
         self._autosave_timeout = None
@@ -62,9 +64,26 @@ class MemoEditView:
         scrolled.set_vexpand(True)
         scrolled.set_child(self.text_view)
 
+        # Metadata bar at bottom of text area
+        self.metadata_box = Adw.WrapBox()
+        self.metadata_box.set_line_spacing(4)
+        self.metadata_box.set_child_spacing(4)
+        self.metadata_box.set_margin_start(20)
+        self.metadata_box.set_margin_end(20)
+        self.metadata_box.set_margin_top(12)
+        self.metadata_box.set_margin_bottom(12)
+        self.metadata_box.set_halign(Gtk.Align.START)
+        self.metadata_box.set_visible(False)
+        self.metadata_box.add_css_class("metadata-chips")
+
+        # Wrap scrolled + metadata in a box
+        editor_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        editor_box.append(scrolled)
+        editor_box.append(self.metadata_box)
+
         # Bottom sheet for attachments
         self.bottom_sheet = Adw.BottomSheet()
-        self.bottom_sheet.set_content(scrolled)
+        self.bottom_sheet.set_content(editor_box)
         self.bottom_sheet.set_sheet(self._create_attachments_sheet())
         self.bottom_sheet.set_open(False)
         self.bottom_sheet.set_show_drag_handle(True)
@@ -239,6 +258,9 @@ class MemoEditView:
         self.attachments = []
         self.existing_attachments = []
         self._is_dirty = False
+        self._update_metadata(memo)
+        self._update_attachment_badges()
+        self.bottom_sheet.set_open(False)
 
         # Clear attachment list
         child = self.attachments_list.get_first_child()
@@ -367,6 +389,91 @@ class MemoEditView:
     def _get_content(self):
         """Get buffer text"""
         return self.buffer.get_text(self.buffer.get_start_iter(), self.buffer.get_end_iter(), False)
+
+    # -------------------------------------------------------------------------
+    # METADATA
+    # -------------------------------------------------------------------------
+
+    def _update_metadata(self, memo):
+        """Populate metadata chips from memo"""
+        # Clear existing
+        while True:
+            child = self.metadata_box.get_first_child()
+            if not child:
+                break
+            self.metadata_box.remove(child)
+
+        if not memo:
+            self.metadata_box.set_visible(False)
+            return
+
+        has_metadata = False
+
+        # Pinned
+        if memo.get('pinned'):
+            self.metadata_box.append(self._create_chip("pin-symbolic", "Pinned", "accent"))
+            has_metadata = True
+
+        # Tags (max 5 + overflow)
+        tags = memo.get('tags', [])
+        if tags:
+            for tag in tags[:5]:
+                self.metadata_box.append(self._create_chip("tag-outline-symbolic", f"#{tag}", "tag"))
+            if len(tags) > 5:
+                self.metadata_box.append(self._create_chip(None, f"+{len(tags) - 5} more", "dim"))
+            has_metadata = True
+
+        # Relations
+        relations = memo.get('relations', [])
+        if relations:
+            self.metadata_box.append(self._create_chip("chain-link-symbolic", f"{len(relations)} links", "dim"))
+            has_metadata = True
+
+        # Reactions
+        reactions = memo.get('reactions', [])
+        if reactions:
+            total = sum(r.get('count', 1) for r in reactions) if isinstance(reactions[0], dict) else len(reactions)
+            self.metadata_box.append(self._create_chip("emoji-people-symbolic", f"{total} reactions", "dim"))
+            has_metadata = True
+
+        # Comments - fetch async
+        if self.api and memo.get('name'):
+            self._fetch_comments(memo.get('name'), has_metadata)
+        else:
+            self.metadata_box.set_visible(has_metadata)
+
+    def _fetch_comments(self, memo_name, has_other_metadata):
+        """Fetch comments in background"""
+        print(f"Fetching comments for: {memo_name}")
+        def worker():
+            comments = self.api.get_memo_comments(memo_name)
+            GLib.idle_add(self._on_comments_loaded, comments, has_other_metadata)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_comments_loaded(self, comments, has_other_metadata):
+        """Add comments chip after fetch"""
+        if comments:
+            self.metadata_box.append(self._create_chip("chat-bubble-empty-symbolic", f"{len(comments)} comments", "dim"))
+            self.metadata_box.set_visible(True)
+        else:
+            self.metadata_box.set_visible(has_other_metadata)
+
+    def _create_chip(self, icon_name, label_text, style="default"):
+        """Create a pill button"""
+        button = Gtk.Button()
+        button.add_css_class("pill")
+        button.add_css_class(f"chip-{style}")
+
+        if icon_name:
+            content = Adw.ButtonContent()
+            content.set_icon_name(icon_name)
+            content.set_label(label_text)
+            button.set_child(content)
+        else:
+            button.set_label(label_text)
+
+        return button
 
     # -------------------------------------------------------------------------
     # ATTACHMENTS

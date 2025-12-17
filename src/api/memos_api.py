@@ -246,3 +246,19 @@ class MemosAPI:
             return True, memo
         except:
             return False, {}
+
+
+    def get_memo_comments(self, memo_name: str) -> List[Dict]:
+        """Fetch comments for a memo"""
+        try:
+            r = requests.get(
+                f'{self.base_url}/api/v1/{memo_name}/comments',
+                headers=self.headers,
+                timeout=5
+            )
+            print(f"Comments URL: {self.base_url}/api/v1/{memo_name}/comments")
+            print(f"Comments response: {r.status_code} - {r.text[:200]}")
+            return r.json().get('memos', []) if r.status_code == 200 else []
+        except Exception as e:
+            print(f"Comments error: {e}")
+            return []

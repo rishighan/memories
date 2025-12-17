@@ -87,6 +87,7 @@ class MemoriesWindow(Adw.ApplicationWindow):
     def _on_connected(self, api, memos, page_token):
         """Handle successful API connection"""
         self.api = api
+        self.memo_edit_view.api = api
 
         # Status bar
         self.server_label.set_label(f"Connected to {api.base_url}")
