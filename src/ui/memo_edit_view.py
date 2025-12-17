@@ -39,7 +39,6 @@ class MemoEditView:
         """Build UI: overlay with text editor + floating toolbar"""
         if self._ui_initialized:
             return
-
         self._clear_container()
 
         # Text editor
@@ -49,7 +48,6 @@ class MemoEditView:
         self.text_view.set_right_margin(20)
         self.text_view.set_top_margin(80)
         self.text_view.set_bottom_margin(20)
-
         self.buffer = self.text_view.get_buffer()
         self._create_tags()
         self.buffer.connect('changed', self._on_text_changed)
@@ -64,22 +62,34 @@ class MemoEditView:
         scrolled.set_vexpand(True)
         scrolled.set_child(self.text_view)
 
-        # Metadata bar at bottom of text area
+        # Metadata container
+        self.metadata_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        self.metadata_container.set_margin_start(20)
+        self.metadata_container.set_margin_end(20)
+        self.metadata_container.set_margin_top(12)
+        self.metadata_container.set_margin_bottom(12)
+        self.metadata_container.set_visible(False)
+
+        # Tags row
+        self.tags_box = Adw.WrapBox()
+        self.tags_box.set_line_spacing(4)
+        self.tags_box.set_child_spacing(4)
+        self.tags_box.set_halign(Gtk.Align.START)
+        self.tags_box.add_css_class("metadata-chips")
+        self.metadata_container.append(self.tags_box)
+
+        # Other metadata row
         self.metadata_box = Adw.WrapBox()
         self.metadata_box.set_line_spacing(4)
         self.metadata_box.set_child_spacing(4)
-        self.metadata_box.set_margin_start(20)
-        self.metadata_box.set_margin_end(20)
-        self.metadata_box.set_margin_top(12)
-        self.metadata_box.set_margin_bottom(12)
         self.metadata_box.set_halign(Gtk.Align.START)
-        self.metadata_box.set_visible(False)
         self.metadata_box.add_css_class("metadata-chips")
+        self.metadata_container.append(self.metadata_box)
 
-        # Wrap scrolled + metadata in a box
+        # Wrap scrolled + metadata
         editor_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         editor_box.append(scrolled)
-        editor_box.append(self.metadata_box)
+        editor_box.append(self.metadata_container)
 
         # Bottom sheet for attachments
         self.bottom_sheet = Adw.BottomSheet()
@@ -91,7 +101,6 @@ class MemoEditView:
         # Overlay: sheet + floating toolbar
         overlay = Gtk.Overlay()
         overlay.set_child(self.bottom_sheet)
-
         self.floating_toolbar = self._create_toolbar()
         self.floating_toolbar.set_halign(Gtk.Align.CENTER)
         self.floating_toolbar.set_valign(Gtk.Align.START)
@@ -395,52 +404,56 @@ class MemoEditView:
     # -------------------------------------------------------------------------
 
     def _update_metadata(self, memo):
-        """Populate metadata chips from memo"""
-        # Clear existing
-        while True:
-            child = self.metadata_box.get_first_child()
-            if not child:
-                break
-            self.metadata_box.remove(child)
+        """Populate metadata chips"""
+        # Clear both
+        for box in [self.tags_box, self.metadata_box]:
+            while True:
+                child = box.get_first_child()
+                if not child:
+                    break
+                box.remove(child)
 
         if not memo:
-            self.metadata_box.set_visible(False)
+            self.metadata_container.set_visible(False)
             return
 
+        has_tags = False
         has_metadata = False
 
-        # Pinned
-        if memo.get('pinned'):
-            self.metadata_box.append(self._create_chip("pin-symbolic", "Pinned", "accent"))
-            has_metadata = True
-
-        # Tags (max 5 + overflow)
+        # Tags
         tags = memo.get('tags', [])
         if tags:
             for tag in tags[:5]:
-                self.metadata_box.append(self._create_chip("tag-outline-symbolic", f"#{tag}", "tag"))
+                self.tags_box.append(self._create_chip("tag-outline-symbolic", f"#{tag}", "tag"))
             if len(tags) > 5:
-                self.metadata_box.append(self._create_chip(None, f"+{len(tags) - 5} more", "dim"))
+                self.tags_box.append(self._create_chip(None, f"+{len(tags) - 5} more", "dim"))
+            has_tags = True
+
+        # Pinned
+        if memo.get('pinned'):
+            self.metadata_box.append(self._create_chip("view-pin-symbolic", "Pinned", "accent"))
             has_metadata = True
 
         # Relations
         relations = memo.get('relations', [])
         if relations:
-            self.metadata_box.append(self._create_chip("chain-link-symbolic", f"{len(relations)} links", "dim"))
+            self.metadata_box.append(self._create_chip("insert-link-symbolic", f"{len(relations)} links", "dim"))
             has_metadata = True
 
         # Reactions
         reactions = memo.get('reactions', [])
         if reactions:
             total = sum(r.get('count', 1) for r in reactions) if isinstance(reactions[0], dict) else len(reactions)
-            self.metadata_box.append(self._create_chip("emoji-people-symbolic", f"{total} reactions", "dim"))
+            self.metadata_box.append(self._create_chip("face-smile-symbolic", f"{total} reactions", "dim"))
             has_metadata = True
 
-        # Comments - fetch async
+        self.tags_box.set_visible(has_tags)
+        self.metadata_box.set_visible(has_metadata)
+        self.metadata_container.set_visible(has_tags or has_metadata)
+
+        # Comments async
         if self.api and memo.get('name'):
-            self._fetch_comments(memo.get('name'), has_metadata)
-        else:
-            self.metadata_box.set_visible(has_metadata)
+            self._fetch_comments(memo.get('name'), has_tags or has_metadata)
 
     def _fetch_comments(self, memo_name, has_other_metadata):
         """Fetch comments in background"""
@@ -452,12 +465,11 @@ class MemoEditView:
         threading.Thread(target=worker, daemon=True).start()
 
     def _on_comments_loaded(self, comments, has_other_metadata):
-        """Add comments chip after fetch"""
+        """Add comments chip"""
         if comments:
-            self.metadata_box.append(self._create_chip("chat-bubble-empty-symbolic", f"{len(comments)} comments", "dim"))
+            self.metadata_box.append(self._create_chip("user-available-symbolic", f"{len(comments)} comments", "dim"))
             self.metadata_box.set_visible(True)
-        else:
-            self.metadata_box.set_visible(has_other_metadata)
+            self.metadata_container.set_visible(True)
 
     def _create_chip(self, icon_name, label_text, style="default"):
         """Create a pill button"""
