@@ -4,9 +4,10 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from gi.repository import Gtk
+from gi.repository import Gtk, GLib
 from .memo_loader import MemoLoader
 from .memo_row import MemoRow
+from .memo_heatmap import MemoHeatmap
 
 
 class MemosView:
@@ -20,12 +21,31 @@ class MemosView:
         self.loaded_memos = 0
         self.total_memos = 0
         self.is_searching = False
+        self.heatmap = None  # Will be created when loading memos
         
         # Setup scroll pagination
-        self.scrolled_window.get_vadjustment().connect('value-changed', self.on_scroll)
+        self.adjustment = self.scrolled_window.get_vadjustment()
+        self.adjustment.connect('value-changed', self.on_scroll)
+
+        # Setup scroll
+        self.adjustment = self.scrolled_window.get_vadjustment()
+        self.adjustment.connect('value-changed', self.on_scroll)
     
     def load_memos(self, api, memos, page_token):
         """Initialize and load memos"""
+        # Create heatmap if it doesn't exist
+        if not self.heatmap:
+            self.heatmap = MemoHeatmap()
+            self.heatmap.set_margin_start(20)
+            self.heatmap.set_margin_end(20)
+            self.heatmap.set_margin_top(20)
+            self.heatmap.set_margin_bottom(20)
+
+            self.container.prepend(self.heatmap)
+
+        # Update heatmap with memos
+        self.heatmap.set_memos(memos)
+
         self.memo_loader = MemoLoader(api, self.container)
         self.memo_loader.page_token = page_token
         self.memo_loader.load_initial(memos)
@@ -37,19 +57,44 @@ class MemosView:
         
         self.is_searching = False
         self._update_count()
-    
-    def on_scroll(self, adjustment):
-        """Handle scroll for pagination"""
-        if not self.memo_loader or self.is_searching:
-            return
 
+        # Scroll past heatmap after a short delay (let layout settle)
+        GLib.timeout_add(100, self._scroll_past_heatmap)
+
+
+    def on_scroll(self, adjustment):
+        """Handle scroll for pagination and heatmap fade"""
         value = adjustment.get_value()
         upper = adjustment.get_upper()
         page_size = adjustment.get_page_size()
 
+        # Fade heatmap based on scroll position
+        if self.heatmap:
+            if value <= 100:
+                opacity = 1.0 - (value / 100.0) * 0.7  # 1.0 -> 0.3
+                self.heatmap.set_opacity(opacity)
+            else:
+                self.heatmap.set_opacity(0.3)
+
+        # Pagination
+        if not self.memo_loader or self.is_searching:
+            return
+
         if value + page_size >= upper - 200:
             self.memo_loader.load_more(self._on_memos_loaded)
     
+    def _scroll_past_heatmap(self):
+        """Scroll to hide heatmap initially"""
+        if self.heatmap:
+            # Get heatmap height and scroll past it
+            heatmap_height = self.heatmap.get_allocated_height()
+            margin = self.heatmap.get_margin_top() + self.heatmap.get_margin_bottom()
+            scroll_to = heatmap_height + margin
+
+            self.adjustment.set_value(scroll_to)
+
+        return False  # Don't repeat
+
     def _on_memos_loaded(self, count, has_more):
         """Called when more memos are loaded"""
         self.loaded_memos += count

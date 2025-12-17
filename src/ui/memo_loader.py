@@ -9,6 +9,7 @@ import threading
 from collections import OrderedDict
 import datetime
 from .memo_row import MemoRow
+from .memo_heatmap import MemoHeatmap
 
 
 class MemoLoader:
@@ -24,11 +25,12 @@ class MemoLoader:
 
     def load_initial(self, memos):
         """Load initial memos, clearing container"""
-        # Clear existing
+        # Clear existing (skip heatmap)
         child = self.container.get_first_child()
         while child:
             next_child = child.get_next_sibling()
-            self.container.remove(child)
+            if not isinstance(child, MemoHeatmap):
+                self.container.remove(child)
             child = next_child
 
         self.month_sections = {}
@@ -143,11 +145,12 @@ class MemoLoader:
                     # Clear and reload
                     self.month_sections = {}
 
-                    # Clear container
+                    # Clear container (skip heatmap)
                     child = self.container.get_first_child()
                     while child:
                         next_child = child.get_next_sibling()
-                        self.container.remove(child)
+                        if not isinstance(child, MemoHeatmap):
+                            self.container.remove(child)
                         child = next_child
 
                     # Reload grouped memos
