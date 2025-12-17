@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from gi.repository import Adw, Gtk, GLib
+from gi.repository import Adw, Gtk, GLib, Gio
 import threading
 from .ui.connection_view import ConnectionView
 from .ui.memos_view import MemosView
@@ -32,14 +32,10 @@ class MemoriesWindow(Adw.ApplicationWindow):
     search_button = Gtk.Template.Child()
     new_memo_button = Gtk.Template.Child()
 
-    # Edit screen children
+    # Template children for edit screen
     memo_edit_content = Gtk.Template.Child()
     memo_edit_title = Gtk.Template.Child()
     edit_back_button = Gtk.Template.Child()
-    save_memo_button = Gtk.Template.Child()
-    save_spinner = Gtk.Template.Child()
-    delete_memo_button = Gtk.Template.Child()
-    attach_button = Gtk.Template.Child()
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -75,11 +71,7 @@ class MemoriesWindow(Adw.ApplicationWindow):
         # Initialize edit view
         self.memo_edit_view = MemoEditView(
             self.memo_edit_content,
-            self.memo_edit_title,
-            self.save_memo_button,
-            self.save_spinner,
-            self.delete_memo_button,
-            self.attach_button
+            self.memo_edit_title
         )
         self.memo_edit_view.on_save_callback = self._on_save_memo
         self.memo_edit_view.on_delete_callback = self._on_delete_memo
@@ -90,6 +82,13 @@ class MemoriesWindow(Adw.ApplicationWindow):
 
         # Connect views
         self.connection_view.on_success_callback = self._on_connected
+
+        # Setup delete action
+        delete_action = Gio.SimpleAction.new("delete-memo", None)
+        delete_action.connect("activate", self._on_delete_memo_action)
+        delete_action.set_enabled(False)
+        self.add_action(delete_action)
+        self.delete_action = delete_action
 
     def _on_connected(self, api, memos, page_token):
         """Handle successful connection"""
@@ -127,16 +126,24 @@ class MemoriesWindow(Adw.ApplicationWindow):
     def _on_new_memo_clicked(self, button):
         """Open edit screen for new memo"""
         self.memo_edit_view.load_memo(None)
+        self.delete_action.set_enabled(False)
         self.main_stack.set_visible_child_name('memo_edit')
 
     def _on_memo_clicked(self, memo):
         """Open edit screen for existing memo"""
         self.memo_edit_view.load_memo(memo)
+        self.delete_action.set_enabled(True)
         self.main_stack.set_visible_child_name('memo_edit')
 
     def _on_back_clicked(self, button):
         """Go back to memo list"""
         self.main_stack.set_visible_child_name('memos')
+
+    def _on_delete_memo_action(self, action, param):
+        """Handle delete from menu"""
+        memo = self.memo_edit_view.current_memo
+        if memo:
+            self._on_delete_memo(memo)
 
     def _on_save_memo(self, memo, text, attachments):
         """Save memo (create or update)"""

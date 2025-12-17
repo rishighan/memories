@@ -172,13 +172,8 @@
                           <property name="title" translatable="yes">Your Memos</property>
                         </object>
                       </property>
+                      <!-- Left: New memo (primary action) -->
                       <child type="start">
-                        <object class="GtkToggleButton" id="search_button">
-                          <property name="icon-name">system-search-symbolic</property>
-                          <property name="tooltip-text">Search memos</property>
-                        </object>
-                      </child>
-                       <child type="start">
                         <object class="GtkButton" id="new_memo_button">
                           <property name="icon-name">list-add-symbolic</property>
                           <property name="tooltip-text">New memo</property>
@@ -187,6 +182,7 @@
                           </style>
                         </object>
                       </child>
+                      <!-- Right: Search -->
                       <child type="end">
                         <object class="GtkMenuButton">
                           <property name="primary">True</property>
@@ -195,10 +191,16 @@
                           <property name="menu-model">primary_menu</property>
                         </object>
                       </child>
+                      <child type="end">
+                        <object class="GtkToggleButton" id="search_button">
+                          <property name="icon-name">system-search-symbolic</property>
+                          <property name="tooltip-text">Search memos</property>
+                        </object>
+                      </child>
                     </object>
                 </child>
 
-                <!-- Add search bar after header -->
+                <!-- Search bar -->
                 <child type="top">
                   <object class="GtkSearchBar" id="search_bar">
                     <property name="search-mode-enabled">false</property>
@@ -302,39 +304,20 @@
                         <property name="title" translatable="yes">New Memo</property>
                       </object>
                     </property>
+                    <!-- Left: Back only -->
                     <child type="start">
                       <object class="GtkButton" id="edit_back_button">
                         <property name="icon-name">go-previous-symbolic</property>
                         <property name="tooltip-text">Back to list</property>
                       </object>
                     </child>
-                    <child type="start">
-                      <object class="GtkButton" id="attach_button">
-                        <property name="icon-name">mail-attachment-symbolic</property>
-                        <property name="tooltip-text">Add attachments</property>
-                      </object>
-                    </child>
+                    <!-- Right: Menu only -->
                     <child type="end">
-                      <object class="GtkButton" id="save_memo_button">
-                        <property name="label">Save</property>
-                        <style>
-                          <class name="suggested-action"/>
-                        </style>
-                      </object>
-                    </child>
-                    <child type="end">
-                      <object class="GtkSpinner" id="save_spinner">
-                        <property name="visible">false</property>
-                      </object>
-                    </child>
-                    <child type="end">
-                      <object class="GtkButton" id="delete_memo_button">
-                        <property name="icon-name">user-trash-symbolic</property>
-                        <property name="tooltip-text">Delete memo</property>
-                        <property name="visible">false</property>
-                        <style>
-                          <class name="destructive-action"/>
-                        </style>
+                      <object class="GtkMenuButton">
+                        <property name="primary">True</property>
+                        <property name="icon-name">open-menu-symbolic</property>
+                        <property name="tooltip-text" translatable="yes">Main Menu</property>
+                        <property name="menu-model">primary_menu</property>
                       </object>
                     </child>
                   </object>
@@ -354,6 +337,7 @@
     </property>
   </template>
 
+  <!-- Edit screen menu (contains destructive actions) -->
 
   <menu id="primary_menu">
     <section>

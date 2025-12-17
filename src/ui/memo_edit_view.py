@@ -11,14 +11,9 @@ import re
 class MemoEditView:
     """Combined view for creating and editing memos"""
 
-    def __init__(self, container, title_widget, save_button, save_spinner,
-                 delete_button, attach_button):
+    def __init__(self, container, title_widget):
         self.container = container
         self.title_widget = title_widget
-        self.save_button = save_button
-        self.save_spinner = save_spinner
-        self.delete_button = delete_button
-        self.attach_button = attach_button
 
         self.current_memo = None
         self.attachments = []
@@ -31,52 +26,7 @@ class MemoEditView:
         self._update_timeout = None
         self._ui_initialized = False
 
-        self._setup_attach_button()
         self._setup_ui()
-        self._setup_signals()
-
-    def _setup_attach_button(self):
-        """Replace attach button content with icon + badge"""
-        # Create box for icon + badges
-        self.attach_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-
-        # Icon
-        attach_icon = Gtk.Image.new_from_icon_name("mail-attachment-symbolic")
-        self.attach_box.append(attach_icon)
-
-        # Saved count badge
-        self.saved_badge = Gtk.Label()
-        self.saved_badge.add_css_class("caption")
-        self.saved_badge.add_css_class("dim-label")
-        self.saved_badge.set_visible(False)
-        self.attach_box.append(self.saved_badge)
-
-        # New count badge
-        self.new_badge = Gtk.Label()
-        self.new_badge.add_css_class("caption")
-        self.new_badge.add_css_class("success")
-        self.new_badge.add_css_class("heading")
-        self.new_badge.set_visible(False)
-        self.attach_box.append(self.new_badge)
-
-        self.attach_button.set_child(self.attach_box)
-
-    def _update_attachment_badges(self):
-        """Update attachment count badges"""
-        saved_count = len(self.existing_attachments)
-        new_count = len(self.attachments)
-
-        if saved_count > 0:
-            self.saved_badge.set_label(str(saved_count))
-            self.saved_badge.set_visible(True)
-        else:
-            self.saved_badge.set_visible(False)
-
-        if new_count > 0:
-            self.new_badge.set_label(f"+{new_count}")
-            self.new_badge.set_visible(True)
-        else:
-            self.new_badge.set_visible(False)
 
     def _setup_ui(self):
         """Setup the editor UI"""
@@ -95,7 +45,7 @@ class MemoEditView:
         self.text_view.set_wrap_mode(Gtk.WrapMode.WORD)
         self.text_view.set_left_margin(20)
         self.text_view.set_right_margin(20)
-        self.text_view.set_top_margin(20)
+        self.text_view.set_top_margin(60)  # Space for toolbar
         self.text_view.set_bottom_margin(20)
 
         self.buffer = self.text_view.get_buffer()
@@ -112,20 +62,179 @@ class MemoEditView:
         scrolled.set_vexpand(True)
         scrolled.set_child(self.text_view)
 
-        # Bottom sheet for attachments
+        # Bottom sheet
         self.bottom_sheet = Adw.BottomSheet()
         self.bottom_sheet.set_content(scrolled)
-        self.bottom_sheet.set_sheet(self._create_sheet_content())
+        self.bottom_sheet.set_sheet(self._create_attachments_content())
         self.bottom_sheet.set_open(False)
+        self.bottom_sheet.set_show_drag_handle(True)
 
-        self.container.append(self.bottom_sheet)
+        # Overlay for floating toolbar on TOP
+        overlay = Gtk.Overlay()
+        overlay.set_child(self.bottom_sheet)
+
+        # Floating toolbar
+        self.floating_toolbar = self._create_floating_toolbar()
+        self.floating_toolbar.set_halign(Gtk.Align.CENTER)
+        self.floating_toolbar.set_valign(Gtk.Align.START)
+        self.floating_toolbar.set_margin_top(12)
+        overlay.add_overlay(self.floating_toolbar)
+
+        self.container.append(overlay)
 
         self._ui_initialized = True
+
+    def _create_attachments_content(self):
+        """Create just the attachments content"""
+        sheet_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        sheet_box.set_margin_top(12)
+        sheet_box.set_margin_bottom(20)
+        sheet_box.set_margin_start(20)
+        sheet_box.set_margin_end(20)
+        sheet_box.set_vexpand(True)
+
+        # Header
+        header_label = Gtk.Label(label="Attachments")
+        header_label.set_xalign(0)
+        header_label.add_css_class("title-3")
+        sheet_box.append(header_label)
+
+        # Drop zone
+        self.drop_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        self.drop_box.add_css_class("card")
+        self.drop_box.set_margin_top(12)
+        self.drop_box.set_margin_bottom(12)
+
+        self.drop_target = Gtk.DropTarget.new(Gio.File, Gdk.DragAction.COPY)
+        self.drop_target.connect('drop', self._on_file_dropped)
+        self.drop_box.add_controller(self.drop_target)
+
+        top_spacer = Gtk.Box()
+        top_spacer.set_size_request(-1, 16)
+        self.drop_box.append(top_spacer)
+
+        icon = Gtk.Image.new_from_icon_name("folder-download-symbolic")
+        icon.set_pixel_size(48)
+        icon.add_css_class("dim-label")
+        self.drop_box.append(icon)
+
+        drop_label = Gtk.Label(label="Drop files here or")
+        drop_label.add_css_class("dim-label")
+        self.drop_box.append(drop_label)
+
+        browse_button = Gtk.Button(label="Browse Files")
+        browse_button.set_halign(Gtk.Align.CENTER)
+        browse_button.connect('clicked', self._on_browse_clicked)
+        self.drop_box.append(browse_button)
+
+        size_label = Gtk.Label(label="Max 30MB per file")
+        size_label.add_css_class("caption")
+        size_label.add_css_class("dim-label")
+        self.drop_box.append(size_label)
+
+        bottom_spacer = Gtk.Box()
+        bottom_spacer.set_size_request(-1, 16)
+        self.drop_box.append(bottom_spacer)
+
+        sheet_box.append(self.drop_box)
+
+        # Attachments list
+        self.attachments_list = Gtk.ListBox()
+        self.attachments_list.set_selection_mode(Gtk.SelectionMode.NONE)
+        self.attachments_list.add_css_class("boxed-list")
+
+        self.attachments_scrolled = Gtk.ScrolledWindow()
+        self.attachments_scrolled.set_vexpand(True)
+        self.attachments_scrolled.set_min_content_height(150)
+        self.attachments_scrolled.set_child(self.attachments_list)
+        self.attachments_scrolled.set_visible(False)
+        sheet_box.append(self.attachments_scrolled)
+
+        return sheet_box
+
+    def _create_floating_toolbar(self):
+        """Create the floating bottom toolbar"""
+        toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        toolbar.add_css_class("card")
+        toolbar.add_css_class("toolbar")
+
+        # Attachment button with badge
+        self.attach_button = Gtk.Button()
+        self.attach_button.add_css_class("flat")
+        self.attach_button.set_tooltip_text("Attachments")
+        self.attach_button.connect('clicked', self._on_attach_clicked)
+
+        self.attach_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        attach_icon = Gtk.Image.new_from_icon_name("mail-attachment-symbolic")
+        self.attach_box.append(attach_icon)
+
+        self.saved_badge = Gtk.Label()
+        self.saved_badge.add_css_class("caption")
+        self.saved_badge.add_css_class("dim-label")
+        self.saved_badge.set_visible(False)
+        self.attach_box.append(self.saved_badge)
+
+        self.new_badge = Gtk.Label()
+        self.new_badge.add_css_class("caption")
+        self.new_badge.add_css_class("success")
+        self.new_badge.add_css_class("heading")
+        self.new_badge.set_visible(False)
+        self.attach_box.append(self.new_badge)
+
+        self.attach_button.set_child(self.attach_box)
+        toolbar.append(self.attach_button)
+
+        # Separator
+        sep1 = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+        toolbar.append(sep1)
+
+        # Save/Update button
+        self.save_button = Gtk.Button()
+        self.save_button.add_css_class("flat")
+        self.save_icon = Gtk.Image.new_from_icon_name("document-save-symbolic")
+        self.save_button.set_child(self.save_icon)
+        self.save_button.set_tooltip_text("Save memo")
+        self.save_button.connect('clicked', self._on_save_clicked)
+        toolbar.append(self.save_button)
+
+        # Spinner
+        self.save_spinner = Gtk.Spinner()
+        self.save_spinner.set_visible(False)
+        toolbar.append(self.save_spinner)
+
+        # Delete button
+        self.delete_button = Gtk.Button()
+        self.delete_button.add_css_class("flat")
+        delete_icon = Gtk.Image.new_from_icon_name("user-trash-symbolic")
+        self.delete_button.set_child(delete_icon)
+        self.delete_button.set_tooltip_text("Delete memo")
+        self.delete_button.set_visible(False)
+        self.delete_button.connect('clicked', self._on_delete_clicked)
+        toolbar.append(self.delete_button)
+
+        return toolbar
+
+    def _update_attachment_badges(self):
+        """Update attachment count badges"""
+        saved_count = len(self.existing_attachments)
+        new_count = len(self.attachments)
+
+        if saved_count > 0:
+            self.saved_badge.set_label(str(saved_count))
+            self.saved_badge.set_visible(True)
+        else:
+            self.saved_badge.set_visible(False)
+
+        if new_count > 0:
+            self.new_badge.set_label(f"+{new_count}")
+            self.new_badge.set_visible(True)
+        else:
+            self.new_badge.set_visible(False)
 
     def _create_sheet_content(self):
         """Create the bottom sheet content for attachments"""
         wrapper = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        wrapper.set_size_request(-1, 450)
+        wrapper.set_size_request(-1, 400)
 
         sheet_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         sheet_box.set_margin_top(20)
@@ -144,8 +253,6 @@ class MemoEditView:
         self.drop_box.add_css_class("card")
         self.drop_box.set_margin_top(20)
         self.drop_box.set_margin_bottom(20)
-        self.drop_box.set_margin_start(20)
-        self.drop_box.set_margin_end(20)
 
         self.drop_target = Gtk.DropTarget.new(Gio.File, Gdk.DragAction.COPY)
         self.drop_target.connect('drop', self._on_file_dropped)
@@ -195,12 +302,6 @@ class MemoEditView:
         wrapper.append(sheet_box)
         return wrapper
 
-    def _setup_signals(self):
-        """Connect signals"""
-        self.save_button.connect('clicked', self._on_save_clicked)
-        self.delete_button.connect('clicked', self._on_delete_clicked)
-        self.attach_button.connect('clicked', self._on_attach_clicked)
-
     def _on_attach_clicked(self, button):
         """Toggle bottom sheet"""
         is_open = self.bottom_sheet.get_open()
@@ -227,9 +328,10 @@ class MemoEditView:
             child = next_child
 
         if memo:
+            self.save_icon.set_from_icon_name("document-save-as-symbolic")
             self.title_widget.set_title("Edit Memo")
             self.delete_button.set_visible(True)
-            self.save_button.set_label("Update")
+            self.save_button.set_tooltip_text("Update memo")
 
             content = memo.get('content', '')
             self.buffer.set_text(content)
@@ -246,16 +348,18 @@ class MemoEditView:
 
             self._update_attachments_visibility()
         else:
+            self.save_icon.set_from_icon_name("document-save-symbolic")
             self.title_widget.set_title("New Memo")
             self.delete_button.set_visible(False)
-            self.save_button.set_label("Save")
+            self.save_button.set_tooltip_text("Save memo")
             self.buffer.set_text('')
             self.attachments_scrolled.set_visible(False)
 
         self._update_attachment_badges()
 
-        # Close the sheet when loading
+        # Close sheet and show toolbar
         self.bottom_sheet.set_open(False)
+        self.floating_toolbar.set_visible(True)
 
     def _update_attachments_visibility(self):
         """Show/hide attachments list based on count"""
