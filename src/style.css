@@ -44,3 +44,11 @@ overlay > .osd {
     background: @card_bg_color;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
+
+.toolbar .status-success {
+    color: @success_color;
+}
+
+.toolbar .status-error {
+    color: @error_color;
+}

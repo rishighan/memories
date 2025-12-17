@@ -43,6 +43,7 @@ class MemoriesWindow(Adw.ApplicationWindow):
         self.search_handler = None
         self._setup_views()
         self._connect_signals()
+        self._needs_reload = False
 
     # -------------------------------------------------------------------------
     # SETUP
@@ -119,7 +120,10 @@ class MemoriesWindow(Adw.ApplicationWindow):
         self.main_stack.set_visible_child_name('memo_edit')
 
     def _on_back_clicked(self, button):
-        """Back → memo list"""
+        """Back → memo list, reload if needed"""
+        if self._needs_reload:
+            self._reload_memos()
+            self._needs_reload = False
         self.main_stack.set_visible_child_name('memos')
 
     # -------------------------------------------------------------------------
@@ -137,44 +141,45 @@ class MemoriesWindow(Adw.ApplicationWindow):
     # SAVE / DELETE
     # -------------------------------------------------------------------------
 
-    def _on_save_memo(self, memo, text, attachments):
+    def _on_save_memo(self, memo, text, attachments, is_autosave=False):
         """Save or update memo"""
-        if not text.strip():
+        if not text.strip() and not memo:
             self._on_back_clicked(None)
             return
 
         if not self.api:
             return
 
-        self.memo_edit_view.show_saving()
         existing = self.memo_edit_view.existing_attachments
 
         def worker():
             if memo:
-                # Update
                 if attachments:
-                    success, _ = self.api.update_memo_with_attachments(
+                    success, result = self.api.update_memo_with_attachments(
                         memo.get('name'), text, attachments, existing
                     )
                 else:
-                    success, _ = self.api.update_memo(memo.get('name'), text)
+                    success, result = self.api.update_memo(memo.get('name'), text)
             else:
-                # Create
                 if attachments:
-                    success, _ = self.api.create_memo_with_attachments(text, attachments)
+                    success, result = self.api.create_memo_with_attachments(text, attachments)
                 else:
-                    success, _ = self.api.create_memo(text)
+                    success, result = self.api.create_memo(text)
 
-            GLib.idle_add(lambda: self._on_save_complete(success))
+            GLib.idle_add(lambda: self._on_save_complete(success, result, is_autosave))
 
         threading.Thread(target=worker, daemon=True).start()
 
-    def _on_save_complete(self, success):
+    def _on_save_complete(self, success, result, is_autosave):
         """Handle save completion"""
-        self.memo_edit_view.hide_saving()
+        self.memo_edit_view.on_save_complete(success, result if success else None)
+
         if success:
-            self._reload_memos()
-            self.main_stack.set_visible_child_name('memos')
+            if is_autosave:
+                self._needs_reload = True  # Mark for reload on back
+            else:
+                self._reload_memos()
+                self.main_stack.set_visible_child_name('memos')
 
     def _on_delete_memo(self, memo):
         """Delete memo"""

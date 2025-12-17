@@ -1,24 +1,32 @@
 # ui/memo_edit_view.py
-# Memo editor with floating toolbar and attachment bottom sheet
+# Memo editor: floating toolbar, attachments, autosave
 
 from gi.repository import Adw, Gtk, GLib, Pango, Gio, Gdk
 import re
 
 
 class MemoEditView:
-    """Memo editor: text view + floating toolbar + attachment sheet"""
+    """Memo editor with autosave"""
+
+    MAX_FILE_SIZE = 30 * 1024 * 1024
+    AUTOSAVE_DELAY = 2000  # 2 seconds
 
     def __init__(self, container, title_widget):
         self.container = container
         self.title_widget = title_widget
         self.current_memo = None
-        self.attachments = []  # New attachments to upload
-        self.existing_attachments = []  # Already saved attachments
-        self.MAX_FILE_SIZE = 30 * 1024 * 1024
+        self.attachments = []
+        self.existing_attachments = []
         self.on_save_callback = None
         self.on_delete_callback = None
+
+        # Autosave state
+        self._autosave_timeout = None
+        self._last_saved_content = None
+        self._is_dirty = False
         self._update_timeout = None
         self._ui_initialized = False
+
         self._setup_ui()
 
     # -------------------------------------------------------------------------
@@ -26,35 +34,30 @@ class MemoEditView:
     # -------------------------------------------------------------------------
 
     def _setup_ui(self):
-        """Build the UI: overlay with text editor + floating toolbar"""
+        """Build UI: overlay with text editor + floating toolbar"""
         if self._ui_initialized:
             return
 
-        # Clear container
-        child = self.container.get_first_child()
-        while child:
-            next_child = child.get_next_sibling()
-            self.container.remove(child)
-            child = next_child
+        self._clear_container()
 
         # Text editor
         self.text_view = Gtk.TextView()
         self.text_view.set_wrap_mode(Gtk.WrapMode.WORD)
         self.text_view.set_left_margin(20)
         self.text_view.set_right_margin(20)
-        self.text_view.set_top_margin(80)  # Space for floating toolbar
+        self.text_view.set_top_margin(80)
         self.text_view.set_bottom_margin(20)
 
         self.buffer = self.text_view.get_buffer()
         self._create_tags()
         self.buffer.connect('changed', self._on_text_changed)
 
-        # Auto-list continuation on Enter
-        key_controller = Gtk.EventControllerKey()
-        key_controller.connect('key-pressed', self._on_key_pressed)
-        self.text_view.add_controller(key_controller)
+        # Key handler for auto-list
+        key_ctrl = Gtk.EventControllerKey()
+        key_ctrl.connect('key-pressed', self._on_key_pressed)
+        self.text_view.add_controller(key_ctrl)
 
-        # Scrollable text area
+        # Scrolled text area
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_vexpand(True)
         scrolled.set_child(self.text_view)
@@ -66,7 +69,7 @@ class MemoEditView:
         self.bottom_sheet.set_open(False)
         self.bottom_sheet.set_show_drag_handle(True)
 
-        # Overlay: bottom sheet + floating toolbar on top
+        # Overlay: sheet + floating toolbar
         overlay = Gtk.Overlay()
         overlay.set_child(self.bottom_sheet)
 
@@ -79,8 +82,16 @@ class MemoEditView:
         self.container.append(overlay)
         self._ui_initialized = True
 
+    def _clear_container(self):
+        """Remove all children from container"""
+        child = self.container.get_first_child()
+        while child:
+            next_child = child.get_next_sibling()
+            self.container.remove(child)
+            child = next_child
+
     def _create_toolbar(self):
-        """Floating toolbar: attach, save, delete"""
+        """Floating toolbar: attach, save, delete, status"""
         toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         toolbar.add_css_class("card")
         toolbar.add_css_class("toolbar")
@@ -110,7 +121,6 @@ class MemoEditView:
         self.attach_button.set_child(self.attach_box)
         toolbar.append(self.attach_button)
 
-        # Separator
         toolbar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
 
         # Save button
@@ -122,11 +132,6 @@ class MemoEditView:
         self.save_button.connect('clicked', self._on_save_clicked)
         toolbar.append(self.save_button)
 
-        # Spinner (hidden by default)
-        self.save_spinner = Gtk.Spinner()
-        self.save_spinner.set_visible(False)
-        toolbar.append(self.save_spinner)
-
         # Delete button (hidden for new memos)
         self.delete_button = Gtk.Button()
         self.delete_button.add_css_class("flat")
@@ -136,17 +141,39 @@ class MemoEditView:
         self.delete_button.connect('clicked', self._on_delete_clicked)
         toolbar.append(self.delete_button)
 
+        # Autosave status (rightmost)
+        self.status_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        self.status_box.set_margin_start(4)
+        self.status_box.set_margin_end(4)
+        self.status_box.set_visible(False)
+
+        self.status_spinner = Gtk.Spinner()
+        self.status_spinner.set_size_request(16, 16)
+        self.status_spinner.set_spinning(False)
+        self.status_box.append(self.status_spinner)
+
+        self.status_icon = Gtk.Image.new_from_icon_name("emblem-ok-symbolic")
+        self.status_icon.set_pixel_size(16)
+        self.status_icon.set_visible(False)
+        self.status_box.append(self.status_icon)
+
+        self.status_label = Gtk.Label()
+        self.status_label.add_css_class("caption")
+        self.status_label.add_css_class("dim-label")
+        self.status_box.append(self.status_label)
+
+        toolbar.append(self.status_box)
+
         return toolbar
 
     def _create_attachments_sheet(self):
-        """Bottom sheet content: drop zone + attachment list"""
+        """Bottom sheet: drop zone + attachment list"""
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         box.set_margin_top(12)
         box.set_margin_bottom(20)
         box.set_margin_start(20)
         box.set_margin_end(20)
 
-        # Header
         header = Gtk.Label(label="Attachments")
         header.set_xalign(0)
         header.add_css_class("title-3")
@@ -162,7 +189,7 @@ class MemoEditView:
         drop_target.connect('drop', self._on_file_dropped)
         self.drop_box.add_controller(drop_target)
 
-        self.drop_box.append(Gtk.Box())  # Top spacer
+        self.drop_box.append(Gtk.Box())
         self.drop_box.get_first_child().set_size_request(-1, 16)
 
         icon = Gtk.Image.new_from_icon_name("folder-download-symbolic")
@@ -170,9 +197,8 @@ class MemoEditView:
         icon.add_css_class("dim-label")
         self.drop_box.append(icon)
 
-        label = Gtk.Label(label="Drop files here or")
-        label.add_css_class("dim-label")
-        self.drop_box.append(label)
+        self.drop_box.append(Gtk.Label(label="Drop files here or"))
+        self.drop_box.get_last_child().add_css_class("dim-label")
 
         browse_btn = Gtk.Button(label="Browse Files")
         browse_btn.set_halign(Gtk.Align.CENTER)
@@ -184,7 +210,7 @@ class MemoEditView:
         size_label.add_css_class("dim-label")
         self.drop_box.append(size_label)
 
-        self.drop_box.append(Gtk.Box())  # Bottom spacer
+        self.drop_box.append(Gtk.Box())
         self.drop_box.get_last_child().set_size_request(-1, 16)
 
         box.append(self.drop_box)
@@ -208,10 +234,11 @@ class MemoEditView:
     # -------------------------------------------------------------------------
 
     def load_memo(self, memo=None):
-        """Load memo for editing, or prepare for new memo"""
+        """Load memo for editing or prepare for new"""
         self.current_memo = memo
         self.attachments = []
         self.existing_attachments = []
+        self._is_dirty = False
 
         # Clear attachment list
         child = self.attachments_list.get_first_child()
@@ -221,20 +248,18 @@ class MemoEditView:
             child = next_child
 
         if memo:
-            # Edit existing
             self.title_widget.set_title("Edit Memo")
-            self.save_icon.set_from_icon_name("document-save-as-symbolic")
-            self.save_button.set_tooltip_text("Update memo")
+            self.save_icon.set_from_icon_name("document-save-symbolic")
+            self.save_button.set_tooltip_text("Save memo")
             self.delete_button.set_visible(True)
             self.buffer.set_text(memo.get('content', ''))
 
             # Load existing attachments
-            for attach in memo.get('resources', []) or memo.get('attachments', []):
-                self.existing_attachments.append(attach)
-                self.attachments_list.append(self._create_existing_attachment_row(attach))
+            for a in memo.get('resources', []) or memo.get('attachments', []):
+                self.existing_attachments.append(a)
+                self.attachments_list.append(self._create_existing_attachment_row(a))
             self._update_attachments_visibility()
         else:
-            # New memo
             self.title_widget.set_title("New Memo")
             self.save_icon.set_from_icon_name("document-save-symbolic")
             self.save_button.set_tooltip_text("Save memo")
@@ -242,32 +267,124 @@ class MemoEditView:
             self.buffer.set_text('')
             self.attachments_scrolled.set_visible(False)
 
+        self._last_saved_content = self._get_content()
         self._update_attachment_badges()
         self.bottom_sheet.set_open(False)
+
+    # -------------------------------------------------------------------------
+    # AUTOSAVE
+    # -------------------------------------------------------------------------
+
+    def _schedule_autosave(self):
+        """Reset autosave timer"""
+        if self._autosave_timeout:
+            GLib.source_remove(self._autosave_timeout)
+        self._autosave_timeout = GLib.timeout_add(self.AUTOSAVE_DELAY, self._autosave)
+
+    def _autosave(self):
+        """Auto-save if content changed"""
+        self._autosave_timeout = None
+        content = self._get_content()
+
+        # Skip if unchanged or empty new memo
+        if content == self._last_saved_content:
+            return False
+        if not self.current_memo and not content.strip():
+            return False
+
+        self._do_save(content, autosave=True)
+        return False
+
+    def _do_save(self, content, autosave=False):
+        """Execute save"""
+        self._update_save_indicator("saving")
+        self._is_autosave = autosave  # Track this
+
+        # Only include attachments on manual save
+        attachments = [] if autosave else self.attachments
+
+        if self.on_save_callback:
+            self.on_save_callback(self.current_memo, content, attachments, autosave)
+
+    def on_save_complete(self, success, memo=None):
+        """Called by window after save finishes"""
+        if success:
+            self._last_saved_content = self._get_content()
+            self._is_dirty = False
+            self._update_save_indicator("saved")
+
+            # Update current memo if created new
+            if memo and not self.current_memo:
+                self.current_memo = memo
+                self.delete_button.set_visible(True)
+        else:
+            self._update_save_indicator("error")
+
+    def _update_save_indicator(self, state):
+        """Update status label and save button"""
+        self.status_box.set_visible(True)
+
+        if state == "saving":
+            self.status_spinner.set_visible(True)
+            self.status_spinner.set_spinning(True)
+            self.status_icon.set_visible(False)
+            self.status_label.set_label("Autosaving...")
+            self.save_button.set_sensitive(False)
+
+        elif state == "saved":
+            self.status_spinner.stop()
+            self.status_spinner.set_visible(False)
+            self.status_icon.set_from_icon_name("object-select-symbolic")
+            self.status_icon.set_pixel_size(16)
+            self.status_icon.remove_css_class("status-error")
+            self.status_icon.add_css_class("status-success")
+            self.status_icon.set_visible(True)
+            self.status_label.set_label("Saved")
+            self.save_button.set_sensitive(True)
+            GLib.timeout_add(3000, self._clear_status)
+
+        elif state == "error":
+            self.status_spinner.stop()
+            self.status_spinner.set_visible(False)
+            self.status_icon.set_from_icon_name("dialog-warning-symbolic")
+            self.status_icon.set_pixel_size(16)
+            self.status_icon.remove_css_class("status-success")
+            self.status_icon.add_css_class("status-error")
+            self.status_icon.set_visible(True)
+            self.status_label.set_label("Failed")
+            self.save_button.set_sensitive(True)
+            GLib.timeout_add(3000, self._clear_status)
+
+    def _clear_status(self):
+        """Hide status box"""
+        self.status_box.set_visible(False)
+        self.status_icon.set_visible(False)
+        self.status_icon.remove_css_class("status-success")
+        self.status_icon.remove_css_class("status-error")
+        self.status_label.set_label("")
+        return False
+
+    def _get_content(self):
+        """Get buffer text"""
+        return self.buffer.get_text(self.buffer.get_start_iter(), self.buffer.get_end_iter(), False)
 
     # -------------------------------------------------------------------------
     # ATTACHMENTS
     # -------------------------------------------------------------------------
 
     def _on_attach_clicked(self, button):
-        """Toggle attachment sheet"""
         self.bottom_sheet.set_open(not self.bottom_sheet.get_open())
 
     def _on_browse_clicked(self, button):
-        """Open file picker"""
         dialog = Gtk.FileChooserNative.new(
-            "Choose files to attach",
-            self.container.get_root(),
-            Gtk.FileChooserAction.OPEN,
-            "_Open",
-            "_Cancel"
+            "Choose files", self.container.get_root(),
+            Gtk.FileChooserAction.OPEN, "_Open", "_Cancel"
         )
         dialog.set_select_multiple(True)
         dialog.connect('response', self._on_file_chooser_response)
         dialog.show()
 
     def _on_file_chooser_response(self, dialog, response):
-        """Handle file picker result"""
         if response == Gtk.ResponseType.ACCEPT:
             files = dialog.get_files()
             for i in range(files.get_n_items()):
@@ -275,17 +392,14 @@ class MemoEditView:
         dialog.destroy()
 
     def _on_file_dropped(self, drop_target, value, x, y):
-        """Handle drag-and-drop"""
         if isinstance(value, Gio.File):
             self._add_attachment(value)
             return True
         return False
 
     def _add_attachment(self, file):
-        """Add file to new attachments"""
         info = file.query_info("standard::*", Gio.FileQueryInfoFlags.NONE, None)
-        size = info.get_size()
-        name = info.get_name()
+        size, name = info.get_size(), info.get_name()
 
         if size > self.MAX_FILE_SIZE:
             return
@@ -302,27 +416,20 @@ class MemoEditView:
         self._update_attachment_badges()
 
     def _remove_attachment(self, attachment, row):
-        """Remove new attachment"""
         self.attachments.remove(attachment)
         self.attachments_list.remove(row)
         self._update_attachments_visibility()
         self._update_attachment_badges()
 
     def _update_attachment_badges(self):
-        """Update badge counts on attach button"""
-        saved = len(self.existing_attachments)
-        new = len(self.attachments)
-
+        saved, new = len(self.existing_attachments), len(self.attachments)
         self.saved_badge.set_label(str(saved))
         self.saved_badge.set_visible(saved > 0)
-
         self.new_badge.set_label(f"+{new}")
         self.new_badge.set_visible(new > 0)
 
     def _update_attachments_visibility(self):
-        """Show list if there are attachments"""
-        total = len(self.attachments) + len(self.existing_attachments)
-        self.attachments_scrolled.set_visible(total > 0)
+        self.attachments_scrolled.set_visible(len(self.attachments) + len(self.existing_attachments) > 0)
 
     def _create_existing_attachment_row(self, attachment):
         """Row for saved attachment"""
@@ -333,8 +440,8 @@ class MemoEditView:
         box.set_margin_start(12)
         box.set_margin_end(12)
 
-        icon_name = "image-x-generic-symbolic" if 'image' in attachment.get('type', '').lower() else "text-x-generic-symbolic"
-        box.append(Gtk.Image.new_from_icon_name(icon_name))
+        icon = "image-x-generic-symbolic" if 'image' in attachment.get('type', '').lower() else "text-x-generic-symbolic"
+        box.append(Gtk.Image.new_from_icon_name(icon))
 
         info = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         info.set_hexpand(True)
@@ -345,8 +452,7 @@ class MemoEditView:
         info.append(name)
 
         size = attachment.get('size', 0)
-        if isinstance(size, str):
-            size = int(size)
+        size = int(size) if isinstance(size, str) else size
         size_label = Gtk.Label(label=f"{size / 1024:.1f} KB")
         size_label.set_xalign(0)
         size_label.add_css_class("caption")
@@ -364,7 +470,7 @@ class MemoEditView:
         return row
 
     def _create_new_attachment_row(self, attachment):
-        """Row for new attachment (with remove button)"""
+        """Row for new attachment with remove button"""
         row = Gtk.ListBoxRow()
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         box.set_margin_top(8)
@@ -408,38 +514,19 @@ class MemoEditView:
     # -------------------------------------------------------------------------
 
     def _on_save_clicked(self, button):
-        """Trigger save callback"""
-        text = self.buffer.get_text(
-            self.buffer.get_start_iter(),
-            self.buffer.get_end_iter(),
-            False
-        )
-        if self.on_save_callback:
-            self.on_save_callback(self.current_memo, text, self.attachments)
+        """Manual save"""
+        self._do_save(self._get_content(), autosave=False)
 
     def _on_delete_clicked(self, button):
-        """Trigger delete callback"""
         if self.current_memo and self.on_delete_callback:
             self.on_delete_callback(self.current_memo)
 
-    def show_saving(self):
-        """Show spinner, disable save"""
-        self.save_button.set_sensitive(False)
-        self.save_spinner.set_visible(True)
-        self.save_spinner.start()
-
-    def hide_saving(self):
-        """Hide spinner, enable save"""
-        self.save_button.set_sensitive(True)
-        self.save_spinner.stop()
-        self.save_spinner.set_visible(False)
-
     # -------------------------------------------------------------------------
-    # MARKDOWN STYLING
+    # MARKDOWN
     # -------------------------------------------------------------------------
 
     def _create_tags(self):
-        """Text tags for inline markdown preview"""
+        """Text tags for markdown preview"""
         t = self.buffer.get_tag_table()
 
         def add(name, **props):
@@ -463,15 +550,20 @@ class MemoEditView:
         add("list_item", left_margin=40, indent=-15)
 
     def _on_text_changed(self, buffer):
-        """Debounced markdown styling"""
+        """Handle text change: markdown styling + autosave"""
+        self._is_dirty = True
+
+        # Debounced markdown styling
         if self._update_timeout:
             GLib.source_remove(self._update_timeout)
         self._update_timeout = GLib.timeout_add(150, self._apply_markdown_styling)
 
+        # Schedule autosave
+        self._schedule_autosave()
+
     def _apply_markdown_styling(self):
-        """Apply markdown tags to buffer"""
-        start = self.buffer.get_start_iter()
-        end = self.buffer.get_end_iter()
+        """Apply markdown tags"""
+        start, end = self.buffer.get_start_iter(), self.buffer.get_end_iter()
         self.buffer.remove_all_tags(start, end)
 
         text = self.buffer.get_text(start, end, False)
@@ -502,7 +594,7 @@ class MemoEditView:
                     self._tag(offset, offset + len(m.group(1)), 'list_bullet')
                     self._tag(offset, offset + length, 'list_item')
 
-            # Inline (skip block-level lines)
+            # Inline
             if not line.startswith(('# ', '## ', '### ', '> ', '    ', '\t')):
                 for m in re.finditer(r'\*\*(.+?)\*\*', line):
                     self._tag(offset + m.start(), offset + m.end(), 'bold')
@@ -523,15 +615,10 @@ class MemoEditView:
         return False
 
     def _tag(self, start, end, name):
-        """Apply tag by name"""
-        self.buffer.apply_tag_by_name(
-            name,
-            self.buffer.get_iter_at_offset(start),
-            self.buffer.get_iter_at_offset(end)
-        )
+        self.buffer.apply_tag_by_name(name, self.buffer.get_iter_at_offset(start), self.buffer.get_iter_at_offset(end))
 
     # -------------------------------------------------------------------------
-    # AUTO-LIST CONTINUATION
+    # AUTO-LIST
     # -------------------------------------------------------------------------
 
     def _on_key_pressed(self, controller, keyval, keycode, state):
@@ -544,26 +631,24 @@ class MemoEditView:
         line_start.set_line_offset(0)
         line_text = self.buffer.get_text(line_start, cursor, False)
 
-        # Ordered list: 1. 2. 3.
+        # Ordered list
         m = re.match(r'^(\s*)(\d+)\.\s+(.*)$', line_text)
         if m:
             indent, num, content = m.groups()
             if content.strip():
                 self.buffer.insert_at_cursor(f"\n{indent}{int(num)+1}. ")
                 return True
-            else:
-                self.buffer.delete(line_start, cursor)
-                return False
+            self.buffer.delete(line_start, cursor)
+            return False
 
-        # Unordered list: - * +
+        # Unordered list
         m = re.match(r'^(\s*)([-*+])\s+(.*)$', line_text)
         if m:
             indent, marker, content = m.groups()
             if content.strip():
                 self.buffer.insert_at_cursor(f"\n{indent}{marker} ")
                 return True
-            else:
-                self.buffer.delete(line_start, cursor)
-                return False
+            self.buffer.delete(line_start, cursor)
+            return False
 
         return False

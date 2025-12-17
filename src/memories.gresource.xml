@@ -4,5 +4,7 @@
     <file preprocess="xml-stripblanks">window.ui</file>
     <file preprocess="xml-stripblanks">resources/shortcuts-dialog.ui</file>
     <file>style.css</file>
+    <file>icons/check-plain-symbolic.svg</file>
+    <file>icons/check-round-outline-symbolic.svg</file>
   </gresource>
 </gresources>
