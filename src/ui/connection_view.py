@@ -1,16 +1,12 @@
 # ui/connection_view.py
-#
-# Copyright 2025 Rishi Ghan
-#
-# SPDX-License-Identifier: GPL-3.0-or-later
+# Connection screen: URL/token input, connect button, credential persistence
 
-from gi.repository import Gtk
 from ..utils.connection_handler import ConnectionHandler
 from ..utils.settings import Settings
 
 
 class ConnectionView:
-    """Handles the connection screen UI logic"""
+    """Connection screen controller"""
 
     def __init__(self, url_entry, token_entry, connect_button, status_label):
         self.url_entry = url_entry
@@ -18,57 +14,61 @@ class ConnectionView:
         self.connect_button = connect_button
         self.status_label = status_label
         self.settings = Settings()
-
-        self._load_credentials()
-        self.connect_button.connect('clicked', self.on_connect_clicked)
-
         self.on_success_callback = None
 
+        self._load_credentials()
+        self.connect_button.connect('clicked', self._on_connect)
+
+    # -------------------------------------------------------------------------
+    # CREDENTIALS
+    # -------------------------------------------------------------------------
+
     def _load_credentials(self):
-        """Load saved credentials"""
-        saved_url = self.settings.get_server_url()
-        saved_token = self.settings.get_api_token()
+        """Load saved URL and token"""
+        url = self.settings.get_server_url() or 'https://notes.rishighan.com'
+        token = self.settings.get_api_token() or ''
+        self.url_entry.set_text(url)
+        self.token_entry.set_text(token)
 
-        self.url_entry.set_text(saved_url if saved_url else 'https://notes.rishighan.com')
-        if saved_token:
-            self.token_entry.set_text(saved_token)
+    def _save_credentials(self, url, token):
+        """Persist URL and token"""
+        self.settings.set_server_url(url)
+        self.settings.set_api_token(token)
 
-    def on_connect_clicked(self, button):
-        """Handle connect button click"""
-        base_url = self.url_entry.get_text().strip()
+    # -------------------------------------------------------------------------
+    # CONNECT
+    # -------------------------------------------------------------------------
+
+    def _on_connect(self, button):
+        """Handle connect button"""
+        url = self.url_entry.get_text().strip()
         token = self.token_entry.get_text().strip()
 
-        if not base_url or not token:
-            self.status_label.set_markup('<span foreground="#e01b24">⚠ Please enter both URL and token</span>')
+        if not url or not token:
+            self._show_error("Please enter both URL and token")
             return
 
         self.connect_button.set_sensitive(False)
         self.status_label.set_markup('<span>Connecting...</span>')
 
         ConnectionHandler.connect(
-            base_url,
-            token,
-            on_success=lambda api, memos, page_token, user_info: self._on_success(
-                base_url, token, api, memos, page_token
-            ),
+            url, token,
+            on_success=lambda api, memos, page_token, _: self._on_success(url, token, api, memos, page_token),
             on_failure=self._on_failure
         )
 
-    def _on_success(self, base_url, token, api, memos, page_token):
-        """Handle successful connection"""
-        # Save credentials
-        self.settings.set_server_url(base_url)
-        self.settings.set_api_token(token)
-
+    def _on_success(self, url, token, api, memos, page_token):
+        """Connection succeeded"""
+        self._save_credentials(url, token)
         self.connect_button.set_sensitive(True)
-
         if self.on_success_callback:
             self.on_success_callback(api, memos, page_token)
 
     def _on_failure(self, message):
-        """Handle connection failure"""
-        self.status_label.set_markup(
-            f'<span foreground="#e01b24">✗ Connection failed</span>\n'
-            f'<span size="small">{message}</span>'
-        )
+        """Connection failed"""
+        self._show_error(f"Connection failed\n<span size='small'>{message}</span>")
         self.connect_button.set_sensitive(True)
+
+    def _show_error(self, message):
+        """Display error in status label"""
+        self.status_label.set_markup(f'<span foreground="#e01b24">✗ {message}</span>')

@@ -1,19 +1,17 @@
-# memo_loader.py
-#
-# Copyright 2025 Rishi Ghan
-#
-# SPDX-License-Identifier: GPL-3.0-or-later
+# ui/memo_loader.py
+# Memo list loader: pagination, month grouping, row click handling
 
 from gi.repository import Gtk, GLib
-import threading
 from collections import OrderedDict
-import datetime
+from datetime import datetime
+import threading
+
 from .memo_row import MemoRow
 from .memo_heatmap import MemoHeatmap
 
 
 class MemoLoader:
-    """Handles loading and organizing memos"""
+    """Load, group, and paginate memos"""
 
     def __init__(self, api, container):
         self.api = api
@@ -22,96 +20,91 @@ class MemoLoader:
         self.loading_more = False
         self.month_sections = {}
         self.on_reload_complete = None
-        self.on_memo_clicked = None  # Add this
+        self.on_memo_clicked = None
+
+    # -------------------------------------------------------------------------
+    # LOAD
+    # -------------------------------------------------------------------------
 
     def load_initial(self, memos):
-        """Load initial memos, clearing container"""
-        # Clear existing (skip heatmap)
-        child = self.container.get_first_child()
-        while child:
-            next_child = child.get_next_sibling()
-            if not isinstance(child, MemoHeatmap):
-                self.container.remove(child)
-            child = next_child
-
+        """Clear and load initial memos"""
+        self._clear_container()
         self.month_sections = {}
-        grouped = self._group_by_month(memos)
 
-        for month_year, month_memos in grouped.items():
-            self._create_month_section(month_year, month_memos)
-
-        print(f"Loaded {len(memos)} initial memos")
+        for month, month_memos in self._group_by_month(memos).items():
+            self._create_section(month, month_memos)
 
     def load_more(self, callback):
-        """Load next page of memos"""
+        """Load next page"""
         if self.loading_more or not self.page_token:
             return
 
         self.loading_more = True
-        print("Loading more memos...")
 
         def worker():
-            success, memos, page_token = self.api.get_memos(page_token=self.page_token)
-
-            def on_complete():
-                loaded_count = 0
-                has_more = False
-
-                if success and memos:
-                    self.page_token = page_token
-                    has_more = page_token is not None
-
-                    grouped = self._group_by_month(memos)
-
-                    for month_year, month_memos in grouped.items():
-                        if month_year in self.month_sections:
-                            listbox = self.month_sections[month_year]
-                            for memo in month_memos:
-                                row = MemoRow.create(memo, self.api, MemoRow.fetch_attachments)
-                                listbox.append(row)
-                                loaded_count += 1
-                        else:
-                            self._create_month_section(month_year, month_memos)
-                            loaded_count += len(month_memos)
-
-                    print(f"Loaded {loaded_count} more memos")
-                else:
-                    print("No more memos to load")
-                    self.page_token = None
-
-                self.loading_more = False
-                if callback:
-                    callback(loaded_count, has_more)
-
-            GLib.idle_add(on_complete)
+            success, memos, token = self.api.get_memos(page_token=self.page_token)
+            GLib.idle_add(self._on_load_more_complete, success, memos, token, callback)
 
         threading.Thread(target=worker, daemon=True).start()
 
-    def _group_by_month(self, memos):
-        """Group memos by month and year"""
-        grouped = OrderedDict()
+    def _on_load_more_complete(self, success, memos, token, callback):
+        """Handle load_more result"""
+        count = 0
+        has_more = False
 
-        for memo in memos:
-            created_ts = memo.get('createTime', '')
-            if created_ts:
-                try:
-                    dt = datetime.datetime.fromisoformat(created_ts.replace('Z', '+00:00'))
-                    month_year = dt.strftime('%B %Y')
+        if success and memos:
+            self.page_token = token
+            has_more = token is not None
 
-                    if month_year not in grouped:
-                        grouped[month_year] = []
-                    grouped[month_year].append(memo)
-                except:
-                    if "Unknown" not in grouped:
-                        grouped["Unknown"] = []
-                    grouped["Unknown"].append(memo)
+            for month, month_memos in self._group_by_month(memos).items():
+                if month in self.month_sections:
+                    # Append to existing section
+                    listbox = self.month_sections[month]
+                    for memo in month_memos:
+                        listbox.append(MemoRow.create(memo, self.api, MemoRow.fetch_attachments))
+                        count += 1
+                else:
+                    # New section
+                    self._create_section(month, month_memos)
+                    count += len(month_memos)
+        else:
+            self.page_token = None
 
-        return grouped
+        self.loading_more = False
+        if callback:
+            callback(count, has_more)
 
-    def _create_month_section(self, month_year, memos):
-        """Create a section with header and list for a month"""
-        # Month header label
-        header = Gtk.Label(label=month_year)
+    def reload_from_start(self):
+        """Reload all memos"""
+        def worker():
+            success, memos, token = self.api.get_memos()
+            GLib.idle_add(self._on_reload_complete, success, memos, token)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_reload_complete(self, success, memos, token):
+        """Handle reload result"""
+        if not success:
+            return
+
+        self.page_token = token
+        self._clear_container()
+        self.month_sections = {}
+
+        for month, month_memos in self._group_by_month(memos).items():
+            self._create_section(month, month_memos)
+
+        if self.on_reload_complete:
+            self.on_reload_complete(len(memos))
+
+    # -------------------------------------------------------------------------
+    # SECTIONS
+    # -------------------------------------------------------------------------
+
+    def _create_section(self, month, memos):
+        """Create month header + listbox"""
+        # Header
+        header = Gtk.Label(label=month)
         header.set_xalign(0)
         header.set_margin_top(24)
         header.set_margin_bottom(12)
@@ -119,60 +112,51 @@ class MemoLoader:
         header.set_margin_end(20)
         header.add_css_class('title-3')
 
-        # ListBox for this month's memos
+        # List
         listbox = Gtk.ListBox()
         listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
         listbox.add_css_class('boxed-list')
-
-        # Connect row activation
         listbox.connect('row-activated', self._on_row_activated)
 
         for memo in memos:
-            row = MemoRow.create(memo, self.api, MemoRow.fetch_attachments)
-            listbox.append(row)
+            listbox.append(MemoRow.create(memo, self.api, MemoRow.fetch_attachments))
 
-        # Add to container
         self.container.append(header)
         self.container.append(listbox)
+        self.month_sections[month] = listbox
 
-        # Track this section
-        self.month_sections[month_year] = listbox
+    def _group_by_month(self, memos):
+        """Group memos by 'Month Year'"""
+        grouped = OrderedDict()
+
+        for memo in memos:
+            ts = memo.get('createTime', '')
+            try:
+                dt = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+                key = dt.strftime('%B %Y')
+            except:
+                key = 'Unknown'
+
+            if key not in grouped:
+                grouped[key] = []
+            grouped[key].append(memo)
+
+        return grouped
+
+    # -------------------------------------------------------------------------
+    # HELPERS
+    # -------------------------------------------------------------------------
+
+    def _clear_container(self):
+        """Remove all children except heatmap"""
+        child = self.container.get_first_child()
+        while child:
+            next_child = child.get_next_sibling()
+            if not isinstance(child, MemoHeatmap):
+                self.container.remove(child)
+            child = next_child
 
     def _on_row_activated(self, listbox, row):
         """Handle row click"""
         if hasattr(row, 'memo_data') and self.on_memo_clicked:
             self.on_memo_clicked(row.memo_data)
-    
-    def reload_from_start(self):
-        """Reload memos from the beginning"""
-        def worker():
-            success, memos, page_token = self.api.get_memos()
-
-            def on_complete():
-                if success and memos:
-                    self.page_token = page_token
-                    # Clear and reload
-                    self.month_sections = {}
-
-                    # Clear container (skip heatmap)
-                    child = self.container.get_first_child()
-                    while child:
-                        next_child = child.get_next_sibling()
-                        if not isinstance(child, MemoHeatmap):
-                            self.container.remove(child)
-                        child = next_child
-
-                    # Reload grouped memos
-                    grouped = self._group_by_month(memos)
-                    for month_year, month_memos in grouped.items():
-                        self._create_month_section(month_year, month_memos)
-
-                    print(f"Reloaded {len(memos)} memos")
-
-                    # Notify callback
-                    if self.on_reload_complete:
-                        self.on_reload_complete(len(memos))
-
-            GLib.idle_add(on_complete)
-
-        threading.Thread(target=worker, daemon=True).start()
