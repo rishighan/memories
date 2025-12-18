@@ -1,14 +1,15 @@
 # ui/memos_view.py
-# Memo list view: heatmap, pagination, search results
+# Memo list: heatmap, pagination, search
 
 from gi.repository import Gtk, GLib
+
 from .memo_loader import MemoLoader
 from .memo_row import MemoRow
 from .memo_heatmap import MemoHeatmap
 
 
 class MemosView:
-    """Memo list with heatmap, scroll pagination, search"""
+    """Memo list with heatmap and search"""
 
     def __init__(self, container, scrolled_window, memo_count_label=None):
         self.container = container
@@ -20,7 +21,6 @@ class MemosView:
         self.total_memos = 0
         self.is_searching = False
 
-        # Scroll pagination
         self.adjustment = self.scrolled_window.get_vadjustment()
         self.adjustment.connect('value-changed', self._on_scroll)
 
@@ -29,11 +29,10 @@ class MemosView:
     # -------------------------------------------------------------------------
 
     def load_memos(self, api, memos, page_token):
-        """Initialize loader and display memos"""
-        # Always create heatmap fresh
-        if self.heatmap:
-            if self.heatmap.get_parent():
-                self.container.remove(self.heatmap)
+        """Load memos with heatmap"""
+        # Fresh heatmap
+        if self.heatmap and self.heatmap.get_parent():
+            self.container.remove(self.heatmap)
 
         self.heatmap = MemoHeatmap()
         self.heatmap.set_margin_start(20)
@@ -41,10 +40,8 @@ class MemosView:
         self.heatmap.set_margin_top(20)
         self.heatmap.set_margin_bottom(20)
         self.container.prepend(self.heatmap)
-
         self.heatmap.set_memos(memos)
 
-        # Create loader
         self.memo_loader = MemoLoader(api, self.container)
         self.memo_loader.page_token = page_token
         self.memo_loader.load_initial(memos)
@@ -54,11 +51,10 @@ class MemosView:
         self.is_searching = False
         self._update_count()
 
-        # Scroll past heatmap after layout settles
         GLib.timeout_add(100, self._scroll_past_heatmap)
 
     def _scroll_past_heatmap(self):
-        """Initially hide heatmap by scrolling past it"""
+        """Hide heatmap initially"""
         if self.heatmap:
             h = self.heatmap.get_allocated_height()
             m = self.heatmap.get_margin_top() + self.heatmap.get_margin_bottom()
@@ -70,23 +66,21 @@ class MemosView:
     # -------------------------------------------------------------------------
 
     def _on_scroll(self, adjustment):
-        """Handle scroll: heatmap fade + pagination"""
+        """Heatmap fade + pagination"""
         value = adjustment.get_value()
         upper = adjustment.get_upper()
         page_size = adjustment.get_page_size()
 
-        # Fade heatmap
         if self.heatmap:
             opacity = max(0.3, 1.0 - (value / 100.0) * 0.7) if value <= 100 else 0.3
             self.heatmap.set_opacity(opacity)
 
-        # Load more at bottom
         if self.memo_loader and not self.is_searching:
             if value + page_size >= upper - 200:
                 self.memo_loader.load_more(self._on_memos_loaded)
 
     def _on_memos_loaded(self, count, has_more):
-        """Callback after loading more memos"""
+        """After loading more"""
         self.loaded_memos += count
         if not has_more:
             self.total_memos = self.loaded_memos
@@ -97,10 +91,10 @@ class MemosView:
     # -------------------------------------------------------------------------
 
     def show_search_results(self, memos, query):
-        """Display search results with click-through"""
+        """Show search results"""
         self.is_searching = True
 
-        # Clear container
+        # Clear
         child = self.container.get_first_child()
         while child:
             next_child = child.get_next_sibling()
@@ -108,7 +102,6 @@ class MemosView:
             child = next_child
 
         if memos:
-            # Header
             header = Gtk.Label(label=f"Search results for '{query}'")
             header.set_xalign(0)
             header.set_margin_top(24)
@@ -118,7 +111,6 @@ class MemosView:
             header.add_css_class('title-3')
             self.container.append(header)
 
-            # Results list
             listbox = Gtk.ListBox()
             listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
             listbox.add_css_class('boxed-list')
@@ -126,12 +118,11 @@ class MemosView:
 
             for memo in memos:
                 row = MemoRow.create(memo, self.memo_loader.api, MemoRow.fetch_attachments)
-                row.memo_data = memo  # Store for click handler
+                row.memo_data = memo
                 listbox.append(row)
 
             self.container.append(listbox)
         else:
-            # No results
             label = Gtk.Label(label=f"No results found for '{query}'")
             label.set_margin_top(48)
             label.add_css_class('dim-label')
@@ -147,14 +138,13 @@ class MemosView:
             self.memo_loader.on_memo_clicked(row.memo_data)
 
     def restore_all_memos(self):
-        """Restore full list after search"""
+        """Restore full list"""
         if not self.memo_loader:
             return
 
         self.is_searching = False
 
-        # Re-add heatmap if missing
-        if self.heatmap and self.heatmap.get_parent() is None:
+        if self.heatmap and not self.heatmap.get_parent():
             self.container.prepend(self.heatmap)
 
         def on_reload(count):
@@ -170,7 +160,7 @@ class MemosView:
     # -------------------------------------------------------------------------
 
     def _update_count(self):
-        """Update memo count label"""
+        """Update count label"""
         if not self.memo_count_label:
             return
 

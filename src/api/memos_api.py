@@ -75,6 +75,20 @@ class MemosAPI:
         except:
             return False, [], None
 
+    def get_memo(self, memo_name: str) -> Tuple[bool, Dict]:
+        """Fetch single memo"""
+        try:
+            r = requests.get(
+                f'{self.base_url}/api/v1/{memo_name}',
+                headers=self.headers,
+                timeout=10
+            )
+            if r.status_code == 200:
+                return True, r.json()
+            return False, {}
+        except:
+            return False, {}
+
     def search_memos(self, query: str) -> Tuple[bool, List[Dict], str]:
         """Search memos by content"""
         try:
