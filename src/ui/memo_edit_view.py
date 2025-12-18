@@ -423,10 +423,10 @@ class MemoEditView:
         # Tags
         tags = memo.get('tags', [])
         if tags:
-            for tag in tags[:5]:
-                self.tags_box.append(self._create_chip("tag-outline-symbolic", f"#{tag}", "tag"))
-            if len(tags) > 5:
-                self.tags_box.append(self._create_chip(None, f"+{len(tags) - 5} more", "dim"))
+            for tag in tags[:3]:
+                self.tags_box.append(self._create_chip("folder-symbolic", f"#{tag}", "tag"))
+            if len(tags) > 3:
+                self.tags_box.append(self._create_chip(None, f"+{len(tags) - 3} more", "dim"))
             has_tags = True
 
         # Pinned

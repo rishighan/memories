@@ -126,22 +126,34 @@ class MemoLoader:
         self.month_sections[month] = listbox
 
     def _group_by_month(self, memos):
-        """Group memos by 'Month Year'"""
-        grouped = OrderedDict()
+        """Group memos by pinned status, then by month"""
+        pinned = []
+        unpinned = OrderedDict()
 
         for memo in memos:
-            ts = memo.get('createTime', '')
-            try:
-                dt = datetime.fromisoformat(ts.replace('Z', '+00:00'))
-                key = dt.strftime('%B %Y')
-            except:
-                key = 'Unknown'
+            if memo.get('pinned'):
+                pinned.append(memo)
+            else:
+                created_ts = memo.get('createTime', '')
+                if created_ts:
+                    try:
+                        dt = datetime.fromisoformat(created_ts.replace('Z', '+00:00'))
+                        month_year = dt.strftime('%B %Y')
+                    except:
+                        month_year = "Unknown"
+                else:
+                    month_year = "Unknown"
 
-            if key not in grouped:
-                grouped[key] = []
-            grouped[key].append(memo)
+                if month_year not in unpinned:
+                    unpinned[month_year] = []
+                unpinned[month_year].append(memo)
 
-        return grouped
+        # Return pinned first, then by month
+        result = OrderedDict()
+        if pinned:
+            result["📌 Pinned"] = pinned
+        result.update(unpinned)
+        return result
 
     # -------------------------------------------------------------------------
     # HELPERS
