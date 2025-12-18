@@ -1,20 +1,21 @@
 # window.py
 # Main window: connection, memo list, editor
 
-from gi.repository import Adw, Gtk, GLib, Gio
 import threading
 
+from gi.repository import Adw, Gio, GLib, Gtk
+
 from .ui.connection_view import ConnectionView
-from .ui.memos_view import MemosView
-from .ui.search_handler import SearchHandler
 from .ui.memo_edit_view import MemoEditView
+from .ui.memos_view import MemosView
 from .ui.preferences import PreferencesWindow
+from .ui.search_handler import SearchHandler
 from .utils.settings import Settings
 
 
-@Gtk.Template(resource_path='/org/quasars/memories/window.ui')
+@Gtk.Template(resource_path="/org/quasars/memories/window.ui")
 class MemoriesWindow(Adw.ApplicationWindow):
-    __gtype_name__ = 'MemoriesWindow'
+    __gtype_name__ = "MemoriesWindow"
 
     # Connection screen
     main_stack = Gtk.Template.Child()
@@ -60,7 +61,7 @@ class MemoriesWindow(Adw.ApplicationWindow):
     def _load_css(self):
         """Load styles"""
         css = Gtk.CssProvider()
-        css.load_from_resource('/org/quasars/memories/style.css')
+        css.load_from_resource("/org/quasars/memories/style.css")
         Gtk.StyleContext.add_provider_for_display(
             self.get_display(), css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
@@ -68,8 +69,7 @@ class MemoriesWindow(Adw.ApplicationWindow):
     def _setup_views(self):
         """Initialize views"""
         self.connection_view = ConnectionView(
-            self.url_entry, self.token_entry,
-            self.connect_button, self.status_label
+            self.url_entry, self.token_entry, self.connect_button, self.status_label
         )
         self.connection_view.on_success_callback = self._on_connected
 
@@ -77,16 +77,14 @@ class MemoriesWindow(Adw.ApplicationWindow):
             self.memos_container, self.scrolled_window, self.memo_count_label
         )
 
-        self.memo_edit_view = MemoEditView(
-            self.memo_edit_content, self.memo_edit_title
-        )
+        self.memo_edit_view = MemoEditView(self.memo_edit_content, self.memo_edit_title)
         self.memo_edit_view.on_save_callback = self._on_save_memo
         self.memo_edit_view.on_delete_callback = self._on_delete_memo
 
     def _connect_signals(self):
         """Wire up signals"""
-        self.new_memo_button.connect('clicked', self._on_new_memo_clicked)
-        self.edit_back_button.connect('clicked', self._on_back_clicked)
+        self.new_memo_button.connect("clicked", self._on_new_memo_clicked)
+        self.edit_back_button.connect("clicked", self._on_back_clicked)
 
     def _setup_actions(self):
         """Setup window actions"""
@@ -110,7 +108,7 @@ class MemoriesWindow(Adw.ApplicationWindow):
         self.memo_edit_view.api = api
         self.disconnect_action.set_enabled(True)
 
-        self.server_label.set_label(f"Connected")
+        self.server_label.set_label("Connected")
         self.connection_status_label.set_label("●")
         self.memo_count_label.set_label(f"{len(memos)} memos")
 
@@ -121,7 +119,7 @@ class MemoriesWindow(Adw.ApplicationWindow):
 
         self.memos_view.load_memos(api, memos, page_token)
         self.memos_view.memo_loader.on_memo_clicked = self._on_memo_clicked
-        self.main_stack.set_visible_child_name('memos')
+        self.main_stack.set_visible_child_name("memos")
 
     def _on_disconnect(self, action, param):
         """Disconnect from server"""
@@ -145,7 +143,7 @@ class MemoriesWindow(Adw.ApplicationWindow):
         self.memo_count_label.set_label("")
         self.status_label.set_label("")
 
-        self.main_stack.set_visible_child_name('connection')
+        self.main_stack.set_visible_child_name("connection")
 
     def _try_auto_connect(self):
         """Auto-connect if creds exist"""
@@ -166,7 +164,7 @@ class MemoriesWindow(Adw.ApplicationWindow):
         """New memo"""
         self._clear_search_state()
         self.memo_edit_view.load_memo(None)
-        self.main_stack.set_visible_child_name('memo_edit')
+        self.main_stack.set_visible_child_name("memo_edit")
 
     def _on_memo_clicked(self, memo):
         """Open memo - fetch fresh first"""
@@ -175,7 +173,7 @@ class MemoriesWindow(Adw.ApplicationWindow):
             return
 
         def worker():
-            ok, fresh = self.api.get_memo(memo.get('name'))
+            ok, fresh = self.api.get_memo(memo.get("name"))
             GLib.idle_add(self._load_memo_in_editor, fresh if ok else memo)
 
         threading.Thread(target=worker, daemon=True).start()
@@ -183,7 +181,7 @@ class MemoriesWindow(Adw.ApplicationWindow):
     def _load_memo_in_editor(self, memo):
         """Load into editor"""
         self.memo_edit_view.load_memo(memo)
-        self.main_stack.set_visible_child_name('memo_edit')
+        self.main_stack.set_visible_child_name("memo_edit")
 
     def _on_back_clicked(self, button):
         """Back to list"""
@@ -194,9 +192,11 @@ class MemoriesWindow(Adw.ApplicationWindow):
                 self._reload_memos()
             self._needs_reload = False
         elif self._search_query:
-            self.memos_view.show_search_results(self._search_results, self._search_query)
+            self.memos_view.show_search_results(
+                self._search_results, self._search_query
+            )
 
-        self.main_stack.set_visible_child_name('memos')
+        self.main_stack.set_visible_child_name("memos")
 
     def _clear_search_state(self):
         """Clear search"""
@@ -253,13 +253,15 @@ class MemoriesWindow(Adw.ApplicationWindow):
             if memo:
                 if attachments:
                     success, result = self.api.update_memo_with_attachments(
-                        memo.get('name'), text, attachments, existing
+                        memo.get("name"), text, attachments, existing
                     )
                 else:
-                    success, result = self.api.update_memo(memo.get('name'), text)
+                    success, result = self.api.update_memo(memo.get("name"), text)
             else:
                 if attachments:
-                    success, result = self.api.create_memo_with_attachments(text, attachments)
+                    success, result = self.api.create_memo_with_attachments(
+                        text, attachments
+                    )
                 else:
                     success, result = self.api.create_memo(text)
 
@@ -271,7 +273,7 @@ class MemoriesWindow(Adw.ApplicationWindow):
         """Handle save complete"""
         if success:
             # Refetch for fresh metadata
-            memo_name = result.get('name') if result else None
+            memo_name = result.get("name") if result else None
             if memo_name and self.api:
                 ok, fresh = self.api.get_memo(memo_name)
                 if ok:
@@ -287,7 +289,7 @@ class MemoriesWindow(Adw.ApplicationWindow):
                     self._perform_search_refresh()
                 else:
                     self._reload_memos()
-                self.main_stack.set_visible_child_name('memos')
+                self.main_stack.set_visible_child_name("memos")
 
     def _on_delete_memo(self, memo):
         """Delete memo"""
@@ -295,7 +297,7 @@ class MemoriesWindow(Adw.ApplicationWindow):
             return
 
         def worker():
-            success = self.api.delete_memo(memo.get('name'))
+            success = self.api.delete_memo(memo.get("name"))
             GLib.idle_add(self._on_delete_complete, success)
 
         threading.Thread(target=worker, daemon=True).start()
@@ -305,7 +307,7 @@ class MemoriesWindow(Adw.ApplicationWindow):
         if success:
             self._clear_search_state()
             self._reload_memos()
-            self.main_stack.set_visible_child_name('memos')
+            self.main_stack.set_visible_child_name("memos")
 
     # -------------------------------------------------------------------------
     # RELOAD
@@ -313,6 +315,7 @@ class MemoriesWindow(Adw.ApplicationWindow):
 
     def _reload_memos(self):
         """Refresh memo list"""
+
         def worker():
             success, memos, page_token = self.api.get_memos()
             GLib.idle_add(self._on_reload_complete, success, memos, page_token)
@@ -337,7 +340,9 @@ class MemoriesWindow(Adw.ApplicationWindow):
 
     def _on_preferences(self, action, param):
         """Open preferences"""
-        prefs = PreferencesWindow(self, on_credentials_changed=self._on_credentials_changed)
+        prefs = PreferencesWindow(
+            self, on_credentials_changed=self._on_credentials_changed
+        )
         prefs.present()
 
     def _on_credentials_changed(self):

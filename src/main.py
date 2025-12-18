@@ -18,12 +18,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import sys
+
 import gi
 
-gi.require_version('Gtk', '4.0')
-gi.require_version('Adw', '1')
+gi.require_version("Gtk", "4.0")
+gi.require_version("Adw", "1")
+from gi.repository import Adw, Gio
 
-from gi.repository import Gtk, Gio, Adw
 from .window import MemoriesWindow
 
 
@@ -31,12 +32,14 @@ class MemoriesApplication(Adw.Application):
     """The main application singleton class."""
 
     def __init__(self):
-        super().__init__(application_id='org.quasars.memories',
-                         flags=Gio.ApplicationFlags.DEFAULT_FLAGS,
-                         resource_base_path='/org/quasars/memories')
-        self.create_action('quit', lambda *_: self.quit(), ['<control>q'])
-        self.create_action('about', self.on_about_action)
-        self.create_action('preferences', self.on_preferences_action)
+        super().__init__(
+            application_id="org.quasars.memories",
+            flags=Gio.ApplicationFlags.DEFAULT_FLAGS,
+            resource_base_path="/org/quasars/memories",
+        )
+        self.create_action("quit", lambda *_: self.quit(), ["<control>q"])
+        self.create_action("about", self.on_about_action)
+        self.create_action("preferences", self.on_preferences_action)
 
     def do_activate(self):
         """Called when the application is activated.
@@ -51,19 +54,22 @@ class MemoriesApplication(Adw.Application):
 
     def on_about_action(self, *args):
         """Callback for the app.about action."""
-        about = Adw.AboutDialog(application_name='memories',
-                                application_icon='org.quasars.memories',
-                                developer_name='Rishi Ghan',
-                                version='0.1.0',
-                                developers=['Rishi Ghan'],
-                                copyright='© 2025 Rishi Ghan')
-        # Translators: Replace "translator-credits" with your name/username, and optionally an email or URL.
-        about.set_translator_credits(_('translator-credits'))
+        about = Adw.AboutDialog(
+            application_name="memories",
+            application_icon="org.quasars.memories",
+            developer_name="Rishi Ghan",
+            version="0.1.0",
+            developers=["Rishi Ghan"],
+            copyright="© 2025 Rishi Ghan",
+        )
+        # Translators: Replace "translator-credits" with your name/username,
+        # and optionally an email or URL.
+        about.set_translator_credits("translator-credits")
         about.present(self.props.active_window)
 
     def on_preferences_action(self, widget, _):
         """Callback for the app.preferences action."""
-        print('app.preferences action activated')
+        print("app.preferences action activated")
 
     def create_action(self, name, callback, shortcuts=None):
         """Add an application action.

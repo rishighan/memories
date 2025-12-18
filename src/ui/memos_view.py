@@ -1,11 +1,11 @@
 # ui/memos_view.py
 # Memo list: heatmap, pagination, search
 
-from gi.repository import Gtk, GLib
+from gi.repository import GLib, Gtk
 
+from .memo_heatmap import MemoHeatmap
 from .memo_loader import MemoLoader
 from .memo_row import MemoRow
-from .memo_heatmap import MemoHeatmap
 
 
 class MemosView:
@@ -22,7 +22,7 @@ class MemosView:
         self.is_searching = False
 
         self.adjustment = self.scrolled_window.get_vadjustment()
-        self.adjustment.connect('value-changed', self._on_scroll)
+        self.adjustment.connect("value-changed", self._on_scroll)
 
     # -------------------------------------------------------------------------
     # LOAD
@@ -108,16 +108,18 @@ class MemosView:
             header.set_margin_bottom(12)
             header.set_margin_start(20)
             header.set_margin_end(20)
-            header.add_css_class('title-3')
+            header.add_css_class("title-3")
             self.container.append(header)
 
             listbox = Gtk.ListBox()
             listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
-            listbox.add_css_class('boxed-list')
-            listbox.connect('row-activated', self._on_search_row_activated)
+            listbox.add_css_class("boxed-list")
+            listbox.connect("row-activated", self._on_search_row_activated)
 
             for memo in memos:
-                row = MemoRow.create(memo, self.memo_loader.api, MemoRow.fetch_attachments)
+                row = MemoRow.create(
+                    memo, self.memo_loader.api, MemoRow.fetch_attachments
+                )
                 row.memo_data = memo
                 listbox.append(row)
 
@@ -125,7 +127,7 @@ class MemosView:
         else:
             label = Gtk.Label(label=f"No results found for '{query}'")
             label.set_margin_top(48)
-            label.add_css_class('dim-label')
+            label.add_css_class("dim-label")
             self.container.append(label)
 
         self.loaded_memos = len(memos)
@@ -134,7 +136,7 @@ class MemosView:
 
     def _on_search_row_activated(self, listbox, row):
         """Handle search result click"""
-        if hasattr(row, 'memo_data') and self.memo_loader.on_memo_clicked:
+        if hasattr(row, "memo_data") and self.memo_loader.on_memo_clicked:
             self.memo_loader.on_memo_clicked(row.memo_data)
 
     def restore_all_memos(self):
@@ -167,6 +169,8 @@ class MemosView:
         if self.total_memos is None:
             self.memo_count_label.set_label(f"{self.loaded_memos} memos loaded")
         elif self.total_memos != self.loaded_memos:
-            self.memo_count_label.set_label(f"{self.loaded_memos} of {self.total_memos} memos")
+            self.memo_count_label.set_label(
+                f"{self.loaded_memos} of {self.total_memos} memos"
+            )
         else:
             self.memo_count_label.set_label(f"{self.loaded_memos} memos")

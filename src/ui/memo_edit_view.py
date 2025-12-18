@@ -1,9 +1,10 @@
 # ui/memo_edit_view.py
 # Memo editor: floating toolbar, attachments, autosave, metadata chips
 
-from gi.repository import Adw, Gtk, GLib, Pango, Gio, Gdk
 import re
 import threading
+
+from gi.repository import Adw, Gdk, Gio, GLib, Gtk, Pango
 
 
 class MemoEditView:
@@ -51,11 +52,11 @@ class MemoEditView:
         self.text_view.set_bottom_margin(20)
         self.buffer = self.text_view.get_buffer()
         self._create_tags()
-        self.buffer.connect('changed', self._on_text_changed)
+        self.buffer.connect("changed", self._on_text_changed)
 
         # Key handler for auto-list
         key_ctrl = Gtk.EventControllerKey()
-        key_ctrl.connect('key-pressed', self._on_key_pressed)
+        key_ctrl.connect("key-pressed", self._on_key_pressed)
         self.text_view.add_controller(key_ctrl)
 
         # Scrolled text area
@@ -64,7 +65,9 @@ class MemoEditView:
         scrolled.set_child(self.text_view)
 
         # Metadata container (tags + other metadata)
-        self.metadata_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        self.metadata_container = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL, spacing=8
+        )
         self.metadata_container.set_margin_start(20)
         self.metadata_container.set_margin_end(20)
         self.metadata_container.set_margin_top(12)
@@ -129,7 +132,7 @@ class MemoEditView:
         self.attach_button = Gtk.Button()
         self.attach_button.add_css_class("flat")
         self.attach_button.set_tooltip_text("Attachments")
-        self.attach_button.connect('clicked', self._on_attach_clicked)
+        self.attach_button.connect("clicked", self._on_attach_clicked)
 
         self.attach_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         self.attach_box.append(Gtk.Image.new_from_icon_name("mail-attachment-symbolic"))
@@ -158,16 +161,18 @@ class MemoEditView:
         self.save_icon = Gtk.Image.new_from_icon_name("document-save-symbolic")
         self.save_button.set_child(self.save_icon)
         self.save_button.set_tooltip_text("Save memo")
-        self.save_button.connect('clicked', self._on_save_clicked)
+        self.save_button.connect("clicked", self._on_save_clicked)
         toolbar.append(self.save_button)
 
         # Delete button
         self.delete_button = Gtk.Button()
         self.delete_button.add_css_class("flat")
-        self.delete_button.set_child(Gtk.Image.new_from_icon_name("user-trash-symbolic"))
+        self.delete_button.set_child(
+            Gtk.Image.new_from_icon_name("user-trash-symbolic")
+        )
         self.delete_button.set_tooltip_text("Delete memo")
         self.delete_button.set_visible(False)
-        self.delete_button.connect('clicked', self._on_delete_clicked)
+        self.delete_button.connect("clicked", self._on_delete_clicked)
         toolbar.append(self.delete_button)
 
         # Autosave status
@@ -214,7 +219,7 @@ class MemoEditView:
         self.drop_box.set_margin_bottom(12)
 
         drop_target = Gtk.DropTarget.new(Gio.File, Gdk.DragAction.COPY)
-        drop_target.connect('drop', self._on_file_dropped)
+        drop_target.connect("drop", self._on_file_dropped)
         self.drop_box.add_controller(drop_target)
 
         self.drop_box.append(Gtk.Box())
@@ -231,7 +236,7 @@ class MemoEditView:
 
         browse_btn = Gtk.Button(label="Browse Files")
         browse_btn.set_halign(Gtk.Align.CENTER)
-        browse_btn.connect('clicked', self._on_browse_clicked)
+        browse_btn.connect("clicked", self._on_browse_clicked)
         self.drop_box.append(browse_btn)
 
         size_lbl = Gtk.Label(label="Max 30MB per file")
@@ -279,17 +284,17 @@ class MemoEditView:
         if memo:
             self.title_widget.set_title("Edit Memo")
             self.delete_button.set_visible(True)
-            self.buffer.set_text(memo.get('content', ''))
+            self.buffer.set_text(memo.get("content", ""))
 
             # Existing attachments
-            for a in memo.get('resources', []) or memo.get('attachments', []):
+            for a in memo.get("resources", []) or memo.get("attachments", []):
                 self.existing_attachments.append(a)
                 self.attachments_list.append(self._create_existing_attachment_row(a))
             self._update_attachments_visibility()
         else:
             self.title_widget.set_title("New Memo")
             self.delete_button.set_visible(False)
-            self.buffer.set_text('')
+            self.buffer.set_text("")
             self.attachments_scrolled.set_visible(False)
 
         self._last_saved_content = self._get_content()
@@ -377,7 +382,9 @@ class MemoEditView:
 
     def _get_content(self):
         """Get buffer text"""
-        return self.buffer.get_text(self.buffer.get_start_iter(), self.buffer.get_end_iter(), False)
+        return self.buffer.get_text(
+            self.buffer.get_start_iter(), self.buffer.get_end_iter(), False
+        )
 
     # -------------------------------------------------------------------------
     # METADATA
@@ -397,30 +404,46 @@ class MemoEditView:
         has_metadata = False
 
         # Tags (max 3)
-        tags = memo.get('tags', [])
+        tags = memo.get("tags", [])
         if tags:
             for tag in tags[:3]:
-                self.tags_box.append(self._create_chip("folder-symbolic", f"#{tag}", "tag"))
+                self.tags_box.append(
+                    self._create_chip("folder-symbolic", f"#{tag}", "tag")
+                )
             if len(tags) > 3:
-                self.tags_box.append(self._create_chip(None, f"+{len(tags) - 3} more", "dim"))
+                self.tags_box.append(
+                    self._create_chip(None, f"+{len(tags) - 3} more", "dim")
+                )
             has_tags = True
 
         # Pinned
-        if memo.get('pinned'):
-            self.metadata_box.append(self._create_chip("view-pin-symbolic", "Pinned", "accent"))
+        if memo.get("pinned"):
+            self.metadata_box.append(
+                self._create_chip("view-pin-symbolic", "Pinned", "accent")
+            )
             has_metadata = True
 
         # Relations
-        relations = memo.get('relations', [])
+        relations = memo.get("relations", [])
         if relations:
-            self.metadata_box.append(self._create_chip("insert-link-symbolic", f"{len(relations)} links", "dim"))
+            self.metadata_box.append(
+                self._create_chip(
+                    "insert-link-symbolic", f"{len(relations)} links", "dim"
+                )
+            )
             has_metadata = True
 
         # Reactions
-        reactions = memo.get('reactions', [])
+        reactions = memo.get("reactions", [])
         if reactions:
-            total = sum(r.get('count', 1) for r in reactions) if isinstance(reactions[0], dict) else len(reactions)
-            self.metadata_box.append(self._create_chip("face-smile-symbolic", f"{total} reactions", "dim"))
+            total = (
+                sum(r.get("count", 1) for r in reactions)
+                if isinstance(reactions[0], dict)
+                else len(reactions)
+            )
+            self.metadata_box.append(
+                self._create_chip("face-smile-symbolic", f"{total} reactions", "dim")
+            )
             has_metadata = True
 
         self.tags_box.set_visible(has_tags)
@@ -428,20 +451,26 @@ class MemoEditView:
         self.metadata_container.set_visible(has_tags or has_metadata)
 
         # Fetch comments async
-        if self.api and memo.get('name'):
-            self._fetch_comments(memo.get('name'), has_tags or has_metadata)
+        if self.api and memo.get("name"):
+            self._fetch_comments(memo.get("name"), has_tags or has_metadata)
 
     def _fetch_comments(self, memo_name, has_other):
         """Fetch comments in background"""
+
         def worker():
             comments = self.api.get_memo_comments(memo_name)
             GLib.idle_add(self._on_comments_loaded, comments, has_other)
+
         threading.Thread(target=worker, daemon=True).start()
 
     def _on_comments_loaded(self, comments, has_other):
         """Add comments chip"""
         if comments:
-            self.metadata_box.append(self._create_chip("user-available-symbolic", f"{len(comments)} comments", "dim"))
+            self.metadata_box.append(
+                self._create_chip(
+                    "user-available-symbolic", f"{len(comments)} comments", "dim"
+                )
+            )
             self.metadata_box.set_visible(True)
             self.metadata_container.set_visible(True)
 
@@ -470,11 +499,14 @@ class MemoEditView:
 
     def _on_browse_clicked(self, button):
         dialog = Gtk.FileChooserNative.new(
-            "Choose files", self.container.get_root(),
-            Gtk.FileChooserAction.OPEN, "_Open", "_Cancel"
+            "Choose files",
+            self.container.get_root(),
+            Gtk.FileChooserAction.OPEN,
+            "_Open",
+            "_Cancel",
         )
         dialog.set_select_multiple(True)
-        dialog.connect('response', self._on_file_chooser_response)
+        dialog.connect("response", self._on_file_chooser_response)
         dialog.show()
 
     def _on_file_chooser_response(self, dialog, response):
@@ -495,10 +527,10 @@ class MemoEditView:
 
         if size > self.MAX_FILE_SIZE:
             return
-        if any(a['file'].get_path() == file.get_path() for a in self.attachments):
+        if any(a["file"].get_path() == file.get_path() for a in self.attachments):
             return
 
-        attachment = {'file': file, 'name': name, 'size': size}
+        attachment = {"file": file, "name": name, "size": size}
         self.attachments.append(attachment)
         self.attachments_list.append(self._create_new_attachment_row(attachment))
         self._update_attachments_visibility()
@@ -518,7 +550,9 @@ class MemoEditView:
         self.new_badge.set_visible(new > 0)
 
     def _update_attachments_visibility(self):
-        self.attachments_scrolled.set_visible(len(self.attachments) + len(self.existing_attachments) > 0)
+        self.attachments_scrolled.set_visible(
+            len(self.attachments) + len(self.existing_attachments) > 0
+        )
 
     def _create_existing_attachment_row(self, attachment):
         """Row for saved attachment"""
@@ -529,18 +563,22 @@ class MemoEditView:
         box.set_margin_start(12)
         box.set_margin_end(12)
 
-        icon = "image-x-generic-symbolic" if 'image' in attachment.get('type', '').lower() else "text-x-generic-symbolic"
+        icon = (
+            "image-x-generic-symbolic"
+            if "image" in attachment.get("type", "").lower()
+            else "text-x-generic-symbolic"
+        )
         box.append(Gtk.Image.new_from_icon_name(icon))
 
         info = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         info.set_hexpand(True)
 
-        name = Gtk.Label(label=attachment.get('filename', 'Unknown'))
+        name = Gtk.Label(label=attachment.get("filename", "Unknown"))
         name.set_xalign(0)
         name.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
         info.append(name)
 
-        size = attachment.get('size', 0)
+        size = attachment.get("size", 0)
         size = int(size) if isinstance(size, str) else size
         size_lbl = Gtk.Label(label=f"{size / 1024:.1f} KB")
         size_lbl.set_xalign(0)
@@ -572,7 +610,7 @@ class MemoEditView:
         info = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         info.set_hexpand(True)
 
-        name = Gtk.Label(label=attachment['name'])
+        name = Gtk.Label(label=attachment["name"])
         name.set_xalign(0)
         name.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
         info.append(name)
@@ -592,7 +630,9 @@ class MemoEditView:
 
         remove_btn = Gtk.Button(icon_name="user-trash-symbolic")
         remove_btn.add_css_class("flat")
-        remove_btn.connect('clicked', lambda b: self._remove_attachment(attachment, row))
+        remove_btn.connect(
+            "clicked", lambda b: self._remove_attachment(attachment, row)
+        )
         box.append(remove_btn)
 
         row.set_child(box)
@@ -655,39 +695,39 @@ class MemoEditView:
         text = self.buffer.get_text(start, end, False)
         offset = 0
 
-        for line in text.split('\n'):
+        for line in text.split("\n"):
             length = len(line)
 
-            if line.startswith('# '):
-                self._tag(offset, offset + length, 'h1')
-            elif line.startswith('## '):
-                self._tag(offset, offset + length, 'h2')
-            elif line.startswith('### '):
-                self._tag(offset, offset + length, 'h3')
-            elif line.startswith('> '):
-                self._tag(offset, offset + length, 'quote')
-            elif line.startswith('    ') or line.startswith('\t'):
-                self._tag(offset, offset + length, 'code_block')
-            elif m := re.match(r'^([\s]*\d+\.\s+)', line):
-                self._tag(offset, offset + len(m.group(1)), 'list_number')
-                self._tag(offset, offset + length, 'list_item')
-            elif m := re.match(r'^([\s]*[-*+]\s+)', line):
-                self._tag(offset, offset + len(m.group(1)), 'list_bullet')
-                self._tag(offset, offset + length, 'list_item')
+            if line.startswith("# "):
+                self._tag(offset, offset + length, "h1")
+            elif line.startswith("## "):
+                self._tag(offset, offset + length, "h2")
+            elif line.startswith("### "):
+                self._tag(offset, offset + length, "h3")
+            elif line.startswith("> "):
+                self._tag(offset, offset + length, "quote")
+            elif line.startswith("    ") or line.startswith("\t"):
+                self._tag(offset, offset + length, "code_block")
+            elif m := re.match(r"^([\s]*\d+\.\s+)", line):
+                self._tag(offset, offset + len(m.group(1)), "list_number")
+                self._tag(offset, offset + length, "list_item")
+            elif m := re.match(r"^([\s]*[-*+]\s+)", line):
+                self._tag(offset, offset + len(m.group(1)), "list_bullet")
+                self._tag(offset, offset + length, "list_item")
 
-            if not line.startswith(('# ', '## ', '### ', '> ', '    ', '\t')):
-                for m in re.finditer(r'\*\*(.+?)\*\*', line):
-                    self._tag(offset + m.start(), offset + m.end(), 'bold')
-                for m in re.finditer(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', line):
-                    self._tag(offset + m.start(), offset + m.end(), 'italic')
-                for m in re.finditer(r'_(.+?)_', line):
-                    self._tag(offset + m.start(), offset + m.end(), 'italic')
-                for m in re.finditer(r'`(.+?)`', line):
-                    self._tag(offset + m.start(), offset + m.end(), 'code')
-                for m in re.finditer(r'~~(.+?)~~', line):
-                    self._tag(offset + m.start(), offset + m.end(), 'strikethrough')
-                for m in re.finditer(r'\[(.+?)\]\((.+?)\)', line):
-                    self._tag(offset + m.start(), offset + m.end(), 'link')
+            if not line.startswith(("# ", "## ", "### ", "> ", "    ", "\t")):
+                for m in re.finditer(r"\*\*(.+?)\*\*", line):
+                    self._tag(offset + m.start(), offset + m.end(), "bold")
+                for m in re.finditer(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", line):
+                    self._tag(offset + m.start(), offset + m.end(), "italic")
+                for m in re.finditer(r"_(.+?)_", line):
+                    self._tag(offset + m.start(), offset + m.end(), "italic")
+                for m in re.finditer(r"`(.+?)`", line):
+                    self._tag(offset + m.start(), offset + m.end(), "code")
+                for m in re.finditer(r"~~(.+?)~~", line):
+                    self._tag(offset + m.start(), offset + m.end(), "strikethrough")
+                for m in re.finditer(r"\[(.+?)\]\((.+?)\)", line):
+                    self._tag(offset + m.start(), offset + m.end(), "link")
 
             offset += length + 1
 
@@ -695,7 +735,11 @@ class MemoEditView:
         return False
 
     def _tag(self, start, end, name):
-        self.buffer.apply_tag_by_name(name, self.buffer.get_iter_at_offset(start), self.buffer.get_iter_at_offset(end))
+        self.buffer.apply_tag_by_name(
+            name,
+            self.buffer.get_iter_at_offset(start),
+            self.buffer.get_iter_at_offset(end),
+        )
 
     # -------------------------------------------------------------------------
     # AUTO-LIST
@@ -711,7 +755,7 @@ class MemoEditView:
         line_start.set_line_offset(0)
         line_text = self.buffer.get_text(line_start, cursor, False)
 
-        if m := re.match(r'^(\s*)(\d+)\.\s+(.*)$', line_text):
+        if m := re.match(r"^(\s*)(\d+)\.\s+(.*)$", line_text):
             indent, num, content = m.groups()
             if content.strip():
                 self.buffer.insert_at_cursor(f"\n{indent}{int(num)+1}. ")
@@ -719,7 +763,7 @@ class MemoEditView:
             self.buffer.delete(line_start, cursor)
             return False
 
-        if m := re.match(r'^(\s*)([-*+])\s+(.*)$', line_text):
+        if m := re.match(r"^(\s*)([-*+])\s+(.*)$", line_text):
             indent, marker, content = m.groups()
             if content.strip():
                 self.buffer.insert_at_cursor(f"\n{indent}{marker} ")

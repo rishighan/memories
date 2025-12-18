@@ -1,8 +1,9 @@
 # ui/search_handler.py
 # Search bar: toggle, debounce, API search
 
-from gi.repository import GLib
 import threading
+
+from gi.repository import GLib
 
 
 class SearchHandler:
@@ -18,9 +19,9 @@ class SearchHandler:
         self._search_timeout = None
 
         # Signals
-        self.search_button.connect('toggled', self._on_toggled)
-        self.search_entry.connect('search-changed', self._on_changed)
-        self.search_entry.connect('stop-search', self._on_stopped)
+        self.search_button.connect("toggled", self._on_toggled)
+        self.search_entry.connect("search-changed", self._on_changed)
+        self.search_entry.connect("stop-search", self._on_stopped)
 
         # Bind entry to bar
         self.search_bar.connect_entry(self.search_entry)
@@ -57,8 +58,8 @@ class SearchHandler:
         if self._search_timeout:
             try:
                 GLib.source_remove(self._search_timeout)
-            except:
-                pass
+            except Exception as e:
+                print(f"Error removing search timeout: {e}")
             self._search_timeout = None
         self._search_timeout = GLib.timeout_add(300, self._search, query)
 
@@ -80,7 +81,7 @@ class SearchHandler:
 
     def _clear(self):
         """Clear search and restore list"""
-        self.search_entry.set_text('')
+        self.search_entry.set_text("")
         self.last_query = None
         if self.on_results_callback:
             self.on_results_callback(None, [])

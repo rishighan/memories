@@ -2,6 +2,7 @@
 # Preferences window: server credentials, app settings
 
 from gi.repository import Adw, Gtk
+
 from ..utils.settings import Settings
 
 

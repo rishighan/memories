@@ -11,16 +11,16 @@ class Settings:
     """Handle app settings persistence"""
 
     def __init__(self):
-        self.settings = Gio.Settings.new('org.quasars.memories')
+        self.settings = Gio.Settings.new("org.quasars.memories")
 
     def get_server_url(self):
-        return self.settings.get_string('server-url')
+        return self.settings.get_string("server-url")
 
     def set_server_url(self, url):
-        self.settings.set_string('server-url', url)
+        self.settings.set_string("server-url", url)
 
     def get_api_token(self):
-        return self.settings.get_string('api-token')
+        return self.settings.get_string("api-token")
 
     def set_api_token(self, token):
-        self.settings.set_string('api-token', token)
+        self.settings.set_string("api-token", token)

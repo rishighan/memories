@@ -1,8 +1,9 @@
 # utils/connection_handler.py
 # Async API connection: test, auth, fetch initial memos
 
-from gi.repository import GLib
 import threading
+
+from gi.repository import GLib
 
 from ..api.memos_api import MemosAPI
 
@@ -17,6 +18,7 @@ class ConnectionHandler:
         on_success(api, memos, page_token, user_info)
         on_failure(message)
         """
+
         def worker():
             try:
                 api = MemosAPI(base_url, token)

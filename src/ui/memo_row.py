@@ -1,10 +1,11 @@
 # ui/memo_row.py
 # Memo list row: content preview, thumbnail stack, async image loading
 
-from gi.repository import Gtk, GLib, Gdk, GdkPixbuf, Pango
-from datetime import datetime
 import threading
+from datetime import datetime
+
 import requests
+from gi.repository import Gdk, GdkPixbuf, GLib, Gtk, Pango
 
 
 class MemoRow:
@@ -39,7 +40,7 @@ class MemoRow:
         box.append(MemoRow._create_content(memo))
 
         # Arrow
-        arrow = Gtk.Image.new_from_icon_name('go-next-symbolic')
+        arrow = Gtk.Image.new_from_icon_name("go-next-symbolic")
         arrow.set_valign(Gtk.Align.CENTER)
         box.append(arrow)
 
@@ -53,8 +54,8 @@ class MemoRow:
     @staticmethod
     def _get_image_attachments(memo):
         """Extract image attachments from memo"""
-        attachments = memo.get('resources', []) or memo.get('attachments', [])
-        return [a for a in attachments if a.get('type', '').startswith('image/')]
+        attachments = memo.get("resources", []) or memo.get("attachments", [])
+        return [a for a in attachments if a.get("type", "").startswith("image/")]
 
     @staticmethod
     def _create_content(memo):
@@ -63,9 +64,9 @@ class MemoRow:
         box.set_hexpand(True)
 
         # Text preview
-        content = memo.get('content', '')[:200]
-        if len(memo.get('content', '')) > 200:
-            content += '...'
+        content = memo.get("content", "")[:200]
+        if len(memo.get("content", "")) > 200:
+            content += "..."
 
         label = Gtk.Label(label=content)
         label.set_xalign(0)
@@ -75,18 +76,18 @@ class MemoRow:
         box.append(label)
 
         # Date
-        create_time = memo.get('createTime', '')
+        create_time = memo.get("createTime", "")
         if create_time:
             try:
-                dt = datetime.fromisoformat(create_time.replace('Z', '+00:00'))
-                date_str = dt.strftime('%B %d, %Y at %I:%M %p')
+                dt = datetime.fromisoformat(create_time.replace("Z", "+00:00"))
+                date_str = dt.strftime("%B %d, %Y at %I:%M %p")
                 date_label = Gtk.Label(label=date_str)
                 date_label.set_xalign(0)
-                date_label.add_css_class('caption')
-                date_label.add_css_class('dim-label')
+                date_label.add_css_class("caption")
+                date_label.add_css_class("dim-label")
                 box.append(date_label)
-            except:
-                pass
+            except (ValueError, AttributeError) as e:
+                print(f"Error parsing date {create_time}: {e}")
 
         return box
 
@@ -129,7 +130,7 @@ class MemoRow:
             badge_box.append(badge)
             overlay.add_overlay(badge_box)
 
-        fetch_callback(base_box, base_picture, memo.get('name', ''), api)
+        fetch_callback(base_box, base_picture, memo.get("name", ""), api)
         return overlay
 
     # -------------------------------------------------------------------------
@@ -139,17 +140,18 @@ class MemoRow:
     @staticmethod
     def fetch_attachments(image_box, placeholder, memo_name, api):
         """Fetch first attachment and load thumbnail"""
+
         def worker():
             attachments = api.get_memo_attachments(memo_name)
             if not attachments:
                 return
 
             first = attachments[0]
-            if 'image' not in first.get('type', '').lower():
+            if "image" not in first.get("type", "").lower():
                 return
 
-            name = first.get('name', '')
-            filename = first.get('filename', '')
+            name = first.get("name", "")
+            filename = first.get("filename", "")
             if name and filename:
                 url = f"/file/{name}/{filename}"
                 GLib.idle_add(MemoRow._load_thumbnail, image_box, placeholder, url, api)
@@ -159,52 +161,63 @@ class MemoRow:
     @staticmethod
     def _load_thumbnail(image_box, placeholder, url, api):
         """Load image from URL"""
+
         def worker():
             try:
-                full_url = f"{api.base_url}{url}" if url.startswith('/') else url
+                full_url = f"{api.base_url}{url}" if url.startswith("/") else url
+                print(f"[THUMB] Loading: {full_url}")
+
                 headers = api.headers.copy()
-                headers['Accept'] = 'image/*'
+                headers["Accept"] = "image/*"
 
                 r = requests.get(full_url, headers=headers, timeout=5)
+                print(
+                    f"[THUMB] Status: {r.status_code}, "
+                    f"Content-Type: {r.headers.get('Content-Type', 'none')}"
+                )
+
                 if r.status_code != 200:
+                    print(f"[THUMB] Failed: {r.text[:200]}")
                     return
 
-                content_type = r.headers.get('Content-Type', '')
-                if 'image' not in content_type:
+                content_type = r.headers.get("Content-Type", "")
+                if "image" not in content_type:
+                    print(f"[THUMB] Not an image: {content_type}")
                     return
 
+                print(f"[THUMB] Got {len(r.content)} bytes")
                 GLib.idle_add(MemoRow._set_thumbnail, image_box, placeholder, r.content)
-            except:
-                pass
+            except Exception as e:
+                print(f"[THUMB] Error: {e}")
 
         threading.Thread(target=worker, daemon=True).start()
 
     @staticmethod
     def _set_thumbnail(image_box, placeholder, data):
         """Set thumbnail from image data"""
+        import os
+        import tempfile
+
         try:
-            loader = GdkPixbuf.PixbufLoader()
-            loader.write(data)
-            loader.close()
-            pixbuf = loader.get_pixbuf()
+            # Write to temp file
+            fd, path = tempfile.mkstemp(suffix=".png")
+            os.write(fd, data)
+            os.close(fd)
 
-            # Crop to square
-            w, h = pixbuf.get_width(), pixbuf.get_height()
-            size = min(w, h)
-            x, y = (w - size) // 2, (h - size) // 2
-            cropped = GdkPixbuf.Pixbuf.new_subpixbuf(pixbuf, x, y, size, size)
+            # Load directly with GdkPixbuf (bypass glycin)
+            pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                path, MemoRow.THUMB_SIZE, MemoRow.THUMB_SIZE, True
+            )
+            os.unlink(path)
 
-            # Scale
-            thumb = cropped.scale_simple(MemoRow.THUMB_SIZE, MemoRow.THUMB_SIZE, GdkPixbuf.InterpType.BILINEAR)
-            texture = Gdk.Texture.new_for_pixbuf(thumb)
-
+            texture = Gdk.Texture.new_for_pixbuf(pixbuf)
             picture = Gtk.Picture.new_for_paintable(texture)
             picture.set_size_request(MemoRow.THUMB_SIZE, MemoRow.THUMB_SIZE)
             picture.set_can_shrink(False)
-            picture.add_css_class('thumbnail')
+            picture.add_css_class("thumbnail")
 
             image_box.remove(placeholder)
             image_box.append(picture)
             image_box.set_visible(True)
-        except:
-            pass
+        except Exception as e:
+            print(f"[THUMB] Set error: {e}")

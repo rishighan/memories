@@ -1,13 +1,14 @@
 # ui/memo_loader.py
 # Memo list loader: pagination, month grouping, row click handling
 
-from gi.repository import Gtk, GLib
+import threading
 from collections import OrderedDict
 from datetime import datetime
-import threading
 
-from .memo_row import MemoRow
+from gi.repository import GLib, Gtk
+
 from .memo_heatmap import MemoHeatmap
+from .memo_row import MemoRow
 
 
 class MemoLoader:
@@ -61,7 +62,9 @@ class MemoLoader:
                     # Append to existing section
                     listbox = self.month_sections[month]
                     for memo in month_memos:
-                        listbox.append(MemoRow.create(memo, self.api, MemoRow.fetch_attachments))
+                        listbox.append(
+                            MemoRow.create(memo, self.api, MemoRow.fetch_attachments)
+                        )
                         count += 1
                 else:
                     # New section
@@ -76,6 +79,7 @@ class MemoLoader:
 
     def reload_from_start(self):
         """Reload all memos"""
+
         def worker():
             success, memos, token = self.api.get_memos()
             GLib.idle_add(self._on_reload_complete, success, memos, token)
@@ -110,13 +114,13 @@ class MemoLoader:
         header.set_margin_bottom(12)
         header.set_margin_start(20)
         header.set_margin_end(20)
-        header.add_css_class('title-3')
+        header.add_css_class("title-3")
 
         # List
         listbox = Gtk.ListBox()
         listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
-        listbox.add_css_class('boxed-list')
-        listbox.connect('row-activated', self._on_row_activated)
+        listbox.add_css_class("boxed-list")
+        listbox.connect("row-activated", self._on_row_activated)
 
         for memo in memos:
             listbox.append(MemoRow.create(memo, self.api, MemoRow.fetch_attachments))
@@ -131,15 +135,16 @@ class MemoLoader:
         unpinned = OrderedDict()
 
         for memo in memos:
-            if memo.get('pinned'):
+            if memo.get("pinned"):
                 pinned.append(memo)
             else:
-                created_ts = memo.get('createTime', '')
+                created_ts = memo.get("createTime", "")
                 if created_ts:
                     try:
-                        dt = datetime.fromisoformat(created_ts.replace('Z', '+00:00'))
-                        month_year = dt.strftime('%B %Y')
-                    except:
+                        dt = datetime.fromisoformat(created_ts.replace("Z", "+00:00"))
+                        month_year = dt.strftime("%B %Y")
+                    except (ValueError, AttributeError) as e:
+                        print(f"Error parsing date {created_ts}: {e}")
                         month_year = "Unknown"
                 else:
                     month_year = "Unknown"
@@ -170,5 +175,5 @@ class MemoLoader:
 
     def _on_row_activated(self, listbox, row):
         """Handle row click"""
-        if hasattr(row, 'memo_data') and self.on_memo_clicked:
+        if hasattr(row, "memo_data") and self.on_memo_clicked:
             self.on_memo_clicked(row.memo_data)

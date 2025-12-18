@@ -1,10 +1,11 @@
 # ui/memo_heatmap.py
 # GitHub-style activity heatmap for current month
 
-from gi.repository import Gtk, Pango, PangoCairo
 import calendar
-from datetime import datetime
 from collections import defaultdict
+from datetime import datetime
+
+from gi.repository import Gtk, Pango, PangoCairo
 
 
 class MemoHeatmap(Gtk.DrawingArea):
@@ -12,9 +13,9 @@ class MemoHeatmap(Gtk.DrawingArea):
 
     # Colors (RGBA)
     COLOR_EMPTY = (0.6, 0.6, 0.6, 0.4)
-    COLOR_LOW = (0.68, 0.87, 0.68, 1.0)      # 1-3 memos
-    COLOR_MEDIUM = (0.15, 0.64, 0.41, 1.0)   # 4-10 memos
-    COLOR_HIGH = (0.85, 0.65, 0.13, 1.0)     # 10+ memos
+    COLOR_LOW = (0.68, 0.87, 0.68, 1.0)  # 1-3 memos
+    COLOR_MEDIUM = (0.15, 0.64, 0.41, 1.0)  # 4-10 memos
+    COLOR_HIGH = (0.85, 0.65, 0.13, 1.0)  # 10+ memos
 
     def __init__(self):
         super().__init__()
@@ -37,14 +38,14 @@ class MemoHeatmap(Gtk.DrawingArea):
         self.memo_counts.clear()
 
         for memo in memos:
-            create_time = memo.get('createTime', '')
+            create_time = memo.get("createTime", "")
             if not create_time:
                 continue
             try:
-                dt = datetime.fromisoformat(create_time.replace('Z', '+00:00'))
+                dt = datetime.fromisoformat(create_time.replace("Z", "+00:00"))
                 self.memo_counts[dt.date()] += 1
-            except:
-                pass
+            except (ValueError, AttributeError) as e:
+                print(f"Error parsing date {create_time}: {e}")
 
         self.queue_draw()
 
@@ -120,7 +121,7 @@ class MemoHeatmap(Gtk.DrawingArea):
         cr.set_source_rgba(0.6, 0.6, 0.6, 1.0)
 
         day_labels_y = 50
-        for i, label in enumerate(['S', 'M', 'T', 'W', 'T', 'F', 'S']):
+        for i, label in enumerate(["S", "M", "T", "W", "T", "F", "S"]):
             layout.set_text(label, -1)
             _, logical = layout.get_pixel_extents()
             x = x_offset + i * (cell_size + cell_gap) + (cell_size - logical.width) / 2

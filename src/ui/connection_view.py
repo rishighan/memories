@@ -17,7 +17,7 @@ class ConnectionView:
         self.on_success_callback = None
 
         self._load_credentials()
-        self.connect_button.connect('clicked', self._on_connect)
+        self.connect_button.connect("clicked", self._on_connect)
 
     # -------------------------------------------------------------------------
     # CREDENTIALS
@@ -25,8 +25,8 @@ class ConnectionView:
 
     def _load_credentials(self):
         """Load saved URL and token"""
-        url = self.settings.get_server_url() or 'https://notes.rishighan.com'
-        token = self.settings.get_api_token() or ''
+        url = self.settings.get_server_url() or "https://notes.rishighan.com"
+        token = self.settings.get_api_token() or ""
         self.url_entry.set_text(url)
         self.token_entry.set_text(token)
 
@@ -49,12 +49,15 @@ class ConnectionView:
             return
 
         self.connect_button.set_sensitive(False)
-        self.status_label.set_markup('<span>Connecting...</span>')
+        self.status_label.set_markup("<span>Connecting...</span>")
 
         ConnectionHandler.connect(
-            url, token,
-            on_success=lambda api, memos, page_token, _: self._on_success(url, token, api, memos, page_token),
-            on_failure=self._on_failure
+            url,
+            token,
+            on_success=lambda api, memos, page_token, _: self._on_success(
+                url, token, api, memos, page_token
+            ),
+            on_failure=self._on_failure,
         )
 
     def _on_success(self, url, token, api, memos, page_token):
