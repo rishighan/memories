@@ -92,28 +92,12 @@ class MemoRow:
 
     @staticmethod
     def _create_thumbnail(memo, api, fetch_callback, images):
-        """Create thumbnail with stack effect for multiple images"""
+        """Create thumbnail with badge for multiple images"""
         size = MemoRow.THUMB_SIZE
 
-        if len(images) == 1:
-            # Single image
-            thumb_box = Gtk.Box()
-            thumb_box.set_size_request(size, size)
-            thumb_box.add_css_class("thumbnail")
-
-            picture = Gtk.Picture()
-            picture.set_size_request(size, size)
-            picture.set_can_shrink(True)
-            picture.add_css_class("thumbnail")
-
-            thumb_box.append(picture)
-            fetch_callback(thumb_box, picture, memo.get('name', ''), api)
-            return thumb_box
-
-        # Multiple images - stack effect
+        # Base thumbnail box
         overlay = Gtk.Overlay()
 
-        # Base image
         base_box = Gtk.Box()
         base_box.set_size_request(size, size)
         base_box.add_css_class("thumbnail")
@@ -126,35 +110,24 @@ class MemoRow:
         base_box.append(base_picture)
         overlay.set_child(base_box)
 
-        # Stack indicators
-        for i in range(1, min(3, len(images))):
-            indicator = Gtk.Box()
-            indicator.set_size_request(150 - i * 8, 150 - i * 8)
-            indicator.add_css_class("card")
-            indicator.set_margin_start(5 + i * 4)
-            indicator.set_margin_top(5 + i * 4)
-            indicator.set_halign(Gtk.Align.END)
-            indicator.set_valign(Gtk.Align.START)
-            indicator.set_opacity(0.8 - i * 0.2)
-            overlay.add_overlay(indicator)
+        # Count badge only (no stack indicators)
+        if len(images) > 1:
+            badge_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+            badge_box.set_halign(Gtk.Align.END)
+            badge_box.set_valign(Gtk.Align.END)
+            badge_box.set_margin_end(8)
+            badge_box.set_margin_bottom(8)
+            badge_box.add_css_class("osd")
 
-        # Count badge
-        badge_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        badge_box.set_halign(Gtk.Align.END)
-        badge_box.set_valign(Gtk.Align.END)
-        badge_box.set_margin_end(8)
-        badge_box.set_margin_bottom(8)
-        badge_box.add_css_class("osd")
+            badge = Gtk.Label(label=f"+{len(images) - 1}")
+            badge.add_css_class("heading")
+            badge.set_margin_start(8)
+            badge.set_margin_end(8)
+            badge.set_margin_top(4)
+            badge.set_margin_bottom(4)
 
-        badge = Gtk.Label(label=f"+{len(images) - 1}")
-        badge.add_css_class("heading")
-        badge.set_margin_start(8)
-        badge.set_margin_end(8)
-        badge.set_margin_top(4)
-        badge.set_margin_bottom(4)
-
-        badge_box.append(badge)
-        overlay.add_overlay(badge_box)
+            badge_box.append(badge)
+            overlay.add_overlay(badge_box)
 
         fetch_callback(base_box, base_picture, memo.get('name', ''), api)
         return overlay

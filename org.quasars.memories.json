@@ -59,7 +59,7 @@
 	    "sources" : [
 		{
 		    "type" : "git",
-		    "url" : "file:///var/home/rishi/Projects"
+		    "url" : "https://github.com/rishighan/memories"
 		}
 	    ]
 	}

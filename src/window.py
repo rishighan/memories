@@ -110,7 +110,7 @@ class MemoriesWindow(Adw.ApplicationWindow):
         self.memo_edit_view.api = api
         self.disconnect_action.set_enabled(True)
 
-        self.server_label.set_label(f"Connected to {api.base_url}")
+        self.server_label.set_label(f"Connected")
         self.connection_status_label.set_label("●")
         self.memo_count_label.set_label(f"{len(memos)} memos")
 
