@@ -150,6 +150,10 @@ class MemosView:
 
         self.is_searching = False
 
+        # Re-add heatmap if missing
+        if self.heatmap and self.heatmap.get_parent() is None:
+            self.container.prepend(self.heatmap)
+
         def on_reload(count):
             self.loaded_memos = count
             self.total_memos = count if not self.memo_loader.page_token else None

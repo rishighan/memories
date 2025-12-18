@@ -43,6 +43,7 @@ class MemoEditView:
 
         # Text editor
         self.text_view = Gtk.TextView()
+        self.text_view.set_monospace(True)
         self.text_view.set_wrap_mode(Gtk.WrapMode.WORD)
         self.text_view.set_left_margin(20)
         self.text_view.set_right_margin(20)
@@ -675,7 +676,7 @@ class MemoEditView:
         # Debounced markdown styling
         if self._update_timeout:
             GLib.source_remove(self._update_timeout)
-        self._update_timeout = GLib.timeout_add(150, self._apply_markdown_styling)
+        self._update_timeout = GLib.timeout_add(50, self._apply_markdown_styling)
 
         # Schedule autosave
         self._schedule_autosave()
