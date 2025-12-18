@@ -338,21 +338,22 @@
   </template>
 
   <!-- Edit screen menu (contains destructive actions) -->
-
   <menu id="primary_menu">
     <section>
       <item>
         <attribute name="label" translatable="yes">_Preferences</attribute>
-        <attribute name="action">app.preferences</attribute>
+        <attribute name="action">win.preferences</attribute>
       </item>
       <item>
-        <attribute name="label" translatable="yes">_Keyboard Shortcuts</attribute>
-        <attribute name="action">app.shortcuts</attribute>
+        <attribute name="label" translatable="yes">_Disconnect</attribute>
+        <attribute name="action">win.disconnect</attribute>
       </item>
+    </section>
+    <section>
       <item>
-        <attribute name="label" translatable="yes">_About Memories</attribute>
+        <attribute name="label" translatable="yes">_About</attribute>
         <attribute name="action">app.about</attribute>
       </item>
     </section>
-  </menu>
+</menu>
 </interface>

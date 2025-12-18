@@ -7,6 +7,8 @@ from .ui.connection_view import ConnectionView
 from .ui.memos_view import MemosView
 from .ui.search_handler import SearchHandler
 from .ui.memo_edit_view import MemoEditView
+from .ui.preferences import PreferencesWindow
+from .utils.settings import Settings
 
 
 @Gtk.Template(resource_path='/org/quasars/memories/window.ui')
@@ -44,6 +46,13 @@ class MemoriesWindow(Adw.ApplicationWindow):
         self._setup_views()
         self._connect_signals()
         self._needs_reload = False
+        # Auto-connect if credentials exist
+        self._try_auto_connect()
+        self._setup_actions()
+
+        # Search Results State
+        self._search_query = None
+        self._search_results = None
 
     # -------------------------------------------------------------------------
     # SETUP
@@ -88,6 +97,7 @@ class MemoriesWindow(Adw.ApplicationWindow):
         """Handle successful API connection"""
         self.api = api
         self.memo_edit_view.api = api
+        self.disconnect_action.set_enabled(True)
 
         # Status bar
         self.server_label.set_label(f"Connected to {api.base_url}")
@@ -106,6 +116,32 @@ class MemoriesWindow(Adw.ApplicationWindow):
         self.memos_view.memo_loader.on_memo_clicked = self._on_memo_clicked
         self.main_stack.set_visible_child_name('memos')
 
+    def _on_disconnect(self, action, param):
+        """Disconnect from server"""
+        self.api = None
+        self.memo_edit_view.api = None
+        self.search_handler = None
+        self.disconnect_action.set_enabled(False)
+        self.memos_view.heatmap = None
+
+        # Clear memos container
+        child = self.memos_container.get_first_child()
+        while child:
+            next_child = child.get_next_sibling()
+            self.memos_container.remove(child)
+            child = next_child
+
+        # Reset status bar
+        self.server_label.set_label("")
+        self.connection_status_label.set_label("")
+        self.memo_count_label.set_label("")
+
+        # Clear connection status
+        self.status_label.set_label("")
+
+        # Show connection screen
+        self.main_stack.set_visible_child_name('connection')
+
     # -------------------------------------------------------------------------
     # NAVIGATION
     # -------------------------------------------------------------------------
@@ -121,11 +157,49 @@ class MemoriesWindow(Adw.ApplicationWindow):
         self.main_stack.set_visible_child_name('memo_edit')
 
     def _on_back_clicked(self, button):
-        """Back → memo list, reload if needed"""
+        """Back → memo list or search results"""
         if self._needs_reload:
-            self._reload_memos()
+            if self._search_query and self._search_results is not None:
+                # Refresh search results
+                self._perform_search_refresh()
+            else:
+                self._reload_memos()
             self._needs_reload = False
+
+        # Restore search results if was searching
+        if self._search_query and self._search_results is not None:
+            self.memos_view.show_search_results(self._search_results, self._search_query)
+
         self.main_stack.set_visible_child_name('memos')
+
+    def _perform_search_refresh(self):
+        """Re-run current search"""
+        if not self.api or not self._search_query:
+            return
+
+        def worker():
+            success, memos, _ = self.api.search_memos(self._search_query)
+            GLib.idle_add(self._on_search_refresh_complete, success, memos)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_search_refresh_complete(self, success, memos):
+        """Handle search refresh"""
+        if success:
+            self._search_results = memos
+            self.memos_view.show_search_results(memos, self._search_query)
+
+    def _setup_actions(self):
+        """Setup window actions"""
+        prefs_action = Gio.SimpleAction.new("preferences", None)
+        prefs_action.connect("activate", self._on_preferences)
+        self.add_action(prefs_action)
+
+        disconnect_action = Gio.SimpleAction.new("disconnect", None)
+        disconnect_action.connect("activate", self._on_disconnect)
+        disconnect_action.set_enabled(False)
+        self.add_action(disconnect_action)
+        self.disconnect_action = disconnect_action
 
     # -------------------------------------------------------------------------
     # SEARCH
@@ -133,6 +207,9 @@ class MemoriesWindow(Adw.ApplicationWindow):
 
     def _on_search_results(self, query, memos):
         """Handle search results"""
+        self._search_query = query
+        self._search_results = memos if query else None
+
         if query is None:
             self.memos_view.restore_all_memos()
         else:
@@ -175,12 +252,12 @@ class MemoriesWindow(Adw.ApplicationWindow):
         """Handle save completion"""
         self.memo_edit_view.on_save_complete(success, result if success else None)
 
-        if success:
-            if is_autosave:
-                self._needs_reload = True  # Mark for reload on back
+        if success and not is_autosave:
+            if self._search_query:
+                self._perform_search_refresh()
             else:
                 self._reload_memos()
-                self.main_stack.set_visible_child_name('memos')
+            self.main_stack.set_visible_child_name('memos')
 
     def _on_delete_memo(self, memo):
         """Delete memo"""
@@ -222,3 +299,26 @@ class MemoriesWindow(Adw.ApplicationWindow):
         self.memos_view.loaded_memos = len(memos)
         self.memos_view.total_memos = len(memos) if not page_token else None
         self.memos_view._update_count()
+
+    # -------------------------------------------------------------------------
+    # PREFERENCES
+    # -------------------------------------------------------------------------
+    def _on_preferences(self, action, param):
+        """Open preferences window"""
+        prefs = PreferencesWindow(self, on_credentials_changed=self._on_credentials_changed)
+        prefs.present()
+
+    def _on_credentials_changed(self):
+        """Handle credential change from preferences"""
+        self._try_auto_connect()
+
+    def _try_auto_connect(self):
+        """Auto-connect if credentials saved"""
+        settings = Settings()
+        url = settings.get_server_url()
+        token = settings.get_api_token()
+
+        if url and token:
+            self.connection_view.url_entry.set_text(url)
+            self.connection_view.token_entry.set_text(token)
+            self.connection_view._on_connect(None)

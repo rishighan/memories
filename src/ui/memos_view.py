@@ -30,14 +30,17 @@ class MemosView:
 
     def load_memos(self, api, memos, page_token):
         """Initialize loader and display memos"""
-        # Create heatmap once
-        if not self.heatmap:
-            self.heatmap = MemoHeatmap()
-            self.heatmap.set_margin_start(20)
-            self.heatmap.set_margin_end(20)
-            self.heatmap.set_margin_top(20)
-            self.heatmap.set_margin_bottom(20)
-            self.container.prepend(self.heatmap)
+        # Always create heatmap fresh
+        if self.heatmap:
+            if self.heatmap.get_parent():
+                self.container.remove(self.heatmap)
+
+        self.heatmap = MemoHeatmap()
+        self.heatmap.set_margin_start(20)
+        self.heatmap.set_margin_end(20)
+        self.heatmap.set_margin_top(20)
+        self.heatmap.set_margin_bottom(20)
+        self.container.prepend(self.heatmap)
 
         self.heatmap.set_memos(memos)
 
