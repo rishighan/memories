@@ -7,6 +7,8 @@ from datetime import datetime
 import requests
 from gi.repository import Gdk, GdkPixbuf, GLib, Gtk, Pango
 
+from ..utils.markdown import MarkdownUtils
+
 
 class MemoRow:
     """Factory for memo list rows"""
@@ -63,12 +65,16 @@ class MemoRow:
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         box.set_hexpand(True)
 
-        # Text preview
+        # Text preview with markdown
         content = memo.get("content", "")[:200]
         if len(memo.get("content", "")) > 200:
             content += "..."
 
-        label = Gtk.Label(label=content)
+        # Convert markdown to Pango markup
+        markup = MarkdownUtils.to_pango_markup(content)
+
+        label = Gtk.Label()
+        label.set_markup(markup)
         label.set_xalign(0)
         label.set_wrap(True)
         label.set_wrap_mode(Pango.WrapMode.WORD_CHAR)

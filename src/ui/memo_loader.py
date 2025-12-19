@@ -130,7 +130,7 @@ class MemoLoader:
         self.month_sections[month] = listbox
 
     def _group_by_month(self, memos):
-        """Group memos by pinned status, then by month"""
+        """Group memos by pinned status, then by month, sorted by updateTime"""
         pinned = []
         unpinned = OrderedDict()
 
@@ -152,6 +152,13 @@ class MemoLoader:
                 if month_year not in unpinned:
                     unpinned[month_year] = []
                 unpinned[month_year].append(memo)
+
+        # Sort pinned by most recently updated
+        pinned.sort(key=lambda m: m.get("updateTime", m.get("createTime", "")), reverse=True)
+
+        # Sort each month's memos by most recently updated
+        for month_memos in unpinned.values():
+            month_memos.sort(key=lambda m: m.get("updateTime", m.get("createTime", "")), reverse=True)
 
         # Return pinned first, then by month
         result = OrderedDict()

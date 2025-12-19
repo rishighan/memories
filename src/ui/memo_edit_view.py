@@ -1,10 +1,11 @@
 # ui/memo_edit_view.py
 # Memo editor: floating toolbar, attachments, autosave, metadata chips
 
-import re
 import threading
 
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk, Pango
+
+from ..utils.markdown import MarkdownUtils
 
 
 class MemoEditView:
@@ -332,7 +333,7 @@ class MemoEditView:
 
     def _do_save(self, content, autosave=False):
         """Execute save"""
-        self._update_save_indicator("saving")
+        self._update_save_indicator("saving", autosave=autosave)
         attachments = [] if autosave else self.attachments
 
         if self.on_save_callback:
@@ -351,7 +352,7 @@ class MemoEditView:
         else:
             self._update_save_indicator("error")
 
-    def _update_save_indicator(self, state):
+    def _update_save_indicator(self, state, autosave=False):
         """Update toolbar status"""
         self.status_box.set_visible(True)
 
@@ -359,7 +360,7 @@ class MemoEditView:
             self.status_spinner.set_visible(True)
             self.status_spinner.start()
             self.status_icon.set_visible(False)
-            self.status_label.set_label("Autosaving...")
+            self.status_label.set_label("Autosaving..." if autosave else "Saving...")
             self.save_button.set_sensitive(False)
         elif state == "saved":
             self.status_spinner.stop()
@@ -690,7 +691,7 @@ class MemoEditView:
         self._schedule_autosave()
 
     def _apply_markdown_styling(self):
-        """Apply markdown tags"""
+        """Apply markdown tags using MarkdownUtils"""
         start, end = self.buffer.get_start_iter(), self.buffer.get_end_iter()
         self.buffer.remove_all_tags(start, end)
 
@@ -700,36 +701,30 @@ class MemoEditView:
         for line in text.split("\n"):
             length = len(line)
 
-            if line.startswith("# "):
+            # Parse line-level styles
+            style_type, data = MarkdownUtils.parse_line_style(line)
+            
+            if style_type == "h1":
                 self._tag(offset, offset + length, "h1")
-            elif line.startswith("## "):
+            elif style_type == "h2":
                 self._tag(offset, offset + length, "h2")
-            elif line.startswith("### "):
+            elif style_type == "h3":
                 self._tag(offset, offset + length, "h3")
-            elif line.startswith("> "):
+            elif style_type == "quote":
                 self._tag(offset, offset + length, "quote")
-            elif line.startswith("    ") or line.startswith("\t"):
+            elif style_type == "code_block":
                 self._tag(offset, offset + length, "code_block")
-            elif m := re.match(r"^([\s]*\d+\.\s+)", line):
-                self._tag(offset, offset + len(m.group(1)), "list_number")
+            elif style_type == "list_number":
+                self._tag(offset, offset + data["marker_len"], "list_number")
                 self._tag(offset, offset + length, "list_item")
-            elif m := re.match(r"^([\s]*[-*+]\s+)", line):
-                self._tag(offset, offset + len(m.group(1)), "list_bullet")
+            elif style_type == "list_bullet":
+                self._tag(offset, offset + data["marker_len"], "list_bullet")
                 self._tag(offset, offset + length, "list_item")
 
-            if not line.startswith(("# ", "## ", "### ", "> ", "    ", "\t")):
-                for m in re.finditer(r"\*\*(.+?)\*\*", line):
-                    self._tag(offset + m.start(), offset + m.end(), "bold")
-                for m in re.finditer(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", line):
-                    self._tag(offset + m.start(), offset + m.end(), "italic")
-                for m in re.finditer(r"_(.+?)_", line):
-                    self._tag(offset + m.start(), offset + m.end(), "italic")
-                for m in re.finditer(r"`(.+?)`", line):
-                    self._tag(offset + m.start(), offset + m.end(), "code")
-                for m in re.finditer(r"~~(.+?)~~", line):
-                    self._tag(offset + m.start(), offset + m.end(), "strikethrough")
-                for m in re.finditer(r"\[(.+?)\]\((.+?)\)", line):
-                    self._tag(offset + m.start(), offset + m.end(), "link")
+            # Apply inline patterns if appropriate
+            if MarkdownUtils.should_apply_inline_patterns(line):
+                for start_pos, end_pos, pattern_type in MarkdownUtils.find_inline_patterns(line):
+                    self._tag(offset + start_pos, offset + end_pos, pattern_type)
 
             offset += length + 1
 
@@ -749,6 +744,8 @@ class MemoEditView:
 
     def _on_key_pressed(self, controller, keyval, keycode, state):
         """Continue lists on Enter"""
+        import re
+        
         if keyval != Gdk.KEY_Return:
             return False
 

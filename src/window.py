@@ -282,14 +282,8 @@ class MemoriesWindow(Adw.ApplicationWindow):
         self.memo_edit_view.on_save_complete(success, result if success else None)
 
         if success:
-            if is_autosave:
-                self._needs_reload = True
-            else:
-                if self._search_query:
-                    self._perform_search_refresh()
-                else:
-                    self._reload_memos()
-                self.main_stack.set_visible_child_name("memos")
+            # Mark that list needs reload, but don't navigate away
+            self._needs_reload = True
 
     def _on_delete_memo(self, memo):
         """Delete memo"""

@@ -80,7 +80,7 @@ class MemoHeatmap(Gtk.DrawingArea):
         cols = 7
         cell_gap = 9
         cell_radius = 15
-        header_height = 80
+        header_height = 50
 
         # Calculate cell size to fill width
         cell_size = (width - (cols - 1) * cell_gap) / cols
@@ -114,20 +114,6 @@ class MemoHeatmap(Gtk.DrawingArea):
         cr.move_to(x_offset, 10)
         PangoCairo.show_layout(cr, layout)
 
-        # Day labels (S M T W T F S)
-        font.set_size(10 * Pango.SCALE)
-        font.set_weight(Pango.Weight.NORMAL)
-        layout.set_font_description(font)
-        cr.set_source_rgba(0.6, 0.6, 0.6, 1.0)
-
-        day_labels_y = 50
-        for i, label in enumerate(["S", "M", "T", "W", "T", "F", "S"]):
-            layout.set_text(label, -1)
-            _, logical = layout.get_pixel_extents()
-            x = x_offset + i * (cell_size + cell_gap) + (cell_size - logical.width) / 2
-            cr.move_to(x, day_labels_y)
-            PangoCairo.show_layout(cr, layout)
-
         # Cell font
         cell_font_size = max(10, min(16, int(cell_size / 3)))
         font.set_size(cell_font_size * Pango.SCALE)
@@ -135,7 +121,7 @@ class MemoHeatmap(Gtk.DrawingArea):
         layout.set_font_description(font)
 
         # Draw cells
-        y_offset = day_labels_y + 35
+        y_offset = header_height
         day = 1
 
         for row in range(rows):
