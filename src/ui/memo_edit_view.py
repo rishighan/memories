@@ -26,7 +26,6 @@ class MemoEditView:
         # Autosave state
         self._autosave_timeout = None
         self._last_saved_content = None
-        self._is_dirty = False
         self._update_timeout = None
         self._ui_initialized = False
 
@@ -222,10 +221,8 @@ class MemoEditView:
         drop_target.connect("drop", self._on_file_dropped)
         self.drop_box.add_controller(drop_target)
 
-        self.drop_box.append(Gtk.Box())
-        self.drop_box.get_first_child().set_size_request(-1, 16)
-
         icon = Gtk.Image.new_from_icon_name("folder-download-symbolic")
+        icon.set_margin_top(16)
         icon.set_pixel_size(48)
         icon.add_css_class("dim-label")
         self.drop_box.append(icon)
@@ -242,10 +239,8 @@ class MemoEditView:
         size_lbl = Gtk.Label(label="Max 30MB per file")
         size_lbl.add_css_class("caption")
         size_lbl.add_css_class("dim-label")
+        size_lbl.set_margin_bottom(16)
         self.drop_box.append(size_lbl)
-
-        self.drop_box.append(Gtk.Box())
-        self.drop_box.get_last_child().set_size_request(-1, 16)
 
         box.append(self.drop_box)
 
@@ -255,8 +250,9 @@ class MemoEditView:
         self.attachments_list.add_css_class("boxed-list")
 
         self.attachments_scrolled = Gtk.ScrolledWindow()
-        self.attachments_scrolled.set_vexpand(True)
-        self.attachments_scrolled.set_min_content_height(150)
+        self.attachments_scrolled.set_vexpand(False)
+        self.attachments_scrolled.set_max_content_height(300)
+        self.attachments_scrolled.set_propagate_natural_height(True)
         self.attachments_scrolled.set_child(self.attachments_list)
         self.attachments_scrolled.set_visible(False)
         box.append(self.attachments_scrolled)
@@ -272,7 +268,16 @@ class MemoEditView:
         self.current_memo = memo
         self.attachments = []
         self.existing_attachments = []
-        self._is_dirty = False
+
+        # Clear autosave timeout
+        if self._autosave_timeout:
+            GLib.source_remove(self._autosave_timeout)
+            self._autosave_timeout = None
+
+        # Clear update timeout
+        if self._update_timeout:
+            GLib.source_remove(self._update_timeout)
+            self._update_timeout = None
 
         # Clear attachments
         child = self.attachments_list.get_first_child()
@@ -337,7 +342,6 @@ class MemoEditView:
         """Called after save completes"""
         if success:
             self._last_saved_content = self._get_content()
-            self._is_dirty = False
             self._update_save_indicator("saved")
 
             if memo:
@@ -452,18 +456,18 @@ class MemoEditView:
 
         # Fetch comments async
         if self.api and memo.get("name"):
-            self._fetch_comments(memo.get("name"), has_tags or has_metadata)
+            self._fetch_comments(memo.get("name"))
 
-    def _fetch_comments(self, memo_name, has_other):
+    def _fetch_comments(self, memo_name):
         """Fetch comments in background"""
 
         def worker():
             comments = self.api.get_memo_comments(memo_name)
-            GLib.idle_add(self._on_comments_loaded, comments, has_other)
+            GLib.idle_add(self._on_comments_loaded, comments)
 
         threading.Thread(target=worker, daemon=True).start()
 
-    def _on_comments_loaded(self, comments, has_other):
+    def _on_comments_loaded(self, comments):
         """Add comments chip"""
         if comments:
             self.metadata_box.append(
@@ -679,8 +683,6 @@ class MemoEditView:
 
     def _on_text_changed(self, buffer):
         """Markdown styling + autosave"""
-        self._is_dirty = True
-
         if self._update_timeout:
             GLib.source_remove(self._update_timeout)
         self._update_timeout = GLib.timeout_add(50, self._apply_markdown_styling)
