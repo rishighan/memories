@@ -113,8 +113,8 @@ class MemoRow:
                     date_box.append(protected_icon)
                 
                 box.append(date_box)
-            except (ValueError, AttributeError) as e:
-                print(f"Error parsing date {create_time}: {e}")
+            except (ValueError, AttributeError):
+                pass
 
         return box
 

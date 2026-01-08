@@ -396,8 +396,6 @@ class MemoriesWindow(Adw.ApplicationWindow):
         # Convert minutes to seconds for GLib.timeout_add_seconds
         interval_seconds = interval_minutes * 60
         
-        print(f"[DEBUG] Starting auto-refresh timer: {interval_minutes} minutes ({interval_seconds} seconds)")
-        
         # Start new timer using timeout_add_seconds for better accuracy
         self._auto_refresh_timeout = GLib.timeout_add_seconds(
             interval_seconds, self._on_auto_refresh
@@ -405,8 +403,6 @@ class MemoriesWindow(Adw.ApplicationWindow):
         
         # Track when we last checked the timer
         self._last_timer_check = time.time()
-        
-        print(f"[DEBUG] Auto-refresh timer ID: {self._auto_refresh_timeout}")
 
     def _stop_auto_refresh(self):
         """Stop auto-refresh timer"""
@@ -416,25 +412,17 @@ class MemoriesWindow(Adw.ApplicationWindow):
 
     def _on_auto_refresh(self):
         """Auto-refresh callback"""
-        print(f"[DEBUG] Auto-refresh timer fired")
-        
         # Update last timer check time
         self._last_timer_check = time.time()
         
         # Only refresh if we're on the memos view and not editing
         current_page = self.main_stack.get_visible_child_name()
         if current_page != "memos" or not self.api:
-            print(f"[DEBUG] Skipping refresh - current_page={current_page}, api={self.api is not None}")
-            # Keep timer running
             return True
         
         # Don't refresh if in search mode
         if self._search_query:
-            print(f"[DEBUG] Skipping refresh - in search mode")
-            # Keep timer running
             return True
-        
-        print(f"[DEBUG] Performing auto-refresh...")
         
         # Perform refresh in background
         def worker():
@@ -448,17 +436,12 @@ class MemoriesWindow(Adw.ApplicationWindow):
 
     def _on_auto_refresh_complete(self, success, memos, page_token):
         """Handle auto-refresh complete"""
-        print(f"[DEBUG] Auto-refresh complete - success={success}, memos={len(memos) if memos else 0}")
-        
         if not success or not self.memos_view.memo_loader:
-            print(f"[DEBUG] Skipping update - success={success}, memo_loader={self.memos_view.memo_loader is not None}")
             return
         
         # Update last refresh time
         self._last_refresh_time = time.time()
         self._update_refresh_status_display()
-        
-        print(f"[DEBUG] Updating memo list with {len(memos)} memos")
         
         # Silently update the list
         self.memos_view.memo_loader.page_token = page_token
@@ -479,7 +462,6 @@ class MemoriesWindow(Adw.ApplicationWindow):
             
             # If more than 2x the interval has passed without timer firing, restart it
             if elapsed_since_check > (interval_seconds * 2):
-                print(f"[DEBUG] Timer appears dead (no fire in {elapsed_since_check}s), restarting...")
                 self._start_auto_refresh()
         
         if not self._last_refresh_time:

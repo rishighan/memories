@@ -58,8 +58,8 @@ class SearchHandler:
         if self._search_timeout:
             try:
                 GLib.source_remove(self._search_timeout)
-            except Exception as e:
-                print(f"Error removing search timeout: {e}")
+            except Exception:
+                pass
             self._search_timeout = None
         self._search_timeout = GLib.timeout_add(300, self._search, query)
 

@@ -44,8 +44,8 @@ class MemoHeatmap(Gtk.DrawingArea):
             try:
                 dt = datetime.fromisoformat(create_time.replace("Z", "+00:00"))
                 self.memo_counts[dt.date()] += 1
-            except (ValueError, AttributeError) as e:
-                print(f"Error parsing date {create_time}: {e}")
+            except (ValueError, AttributeError):
+                pass
 
         self.queue_draw()
 

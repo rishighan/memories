@@ -162,8 +162,7 @@ class MemoLoader(ViewBase):
                     try:
                         dt = datetime.fromisoformat(created_ts.replace("Z", "+00:00"))
                         month_year = dt.strftime("%B %Y")
-                    except (ValueError, AttributeError) as e:
-                        print(f"Error parsing date {created_ts}: {e}")
+                    except (ValueError, AttributeError):
                         month_year = "Unknown"
                 else:
                     month_year = "Unknown"

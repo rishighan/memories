@@ -58,8 +58,7 @@ class MemosAPI:
                 f"{self.base_url}/api/v1/user/me", timeout=10
             )
             return r.json() if r.status_code == 200 else None
-        except Exception as e:
-            print(f"Error getting user info: {e}")
+        except Exception:
             return None
 
     # -------------------------------------------------------------------------
