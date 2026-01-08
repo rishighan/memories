@@ -9,5 +9,10 @@
       <default>''</default>
       <summary>API token</summary>
     </key>
+    <key name="auto-refresh-interval" type="i">
+      <default>5</default>
+      <summary>Auto-refresh interval in minutes</summary>
+      <description>Automatically refresh memos list. Valid values: 5, 10, 15 minutes</description>
+    </key>
   </schema>
 </schemalist>

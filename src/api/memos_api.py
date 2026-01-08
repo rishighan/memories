@@ -14,10 +14,18 @@ class MemosAPI:
     def __init__(self, base_url: str, token: str):
         self.base_url = base_url.rstrip("/")
         self.token = token
-        self.headers = {
+        self.session = requests.Session()
+        self.session.headers.update({
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
-        }
+        })
+        # Keep headers for compatibility
+        self.headers = self.session.headers
+
+    def __del__(self):
+        """Clean up session on deletion"""
+        if hasattr(self, 'session'):
+            self.session.close()
 
     # -------------------------------------------------------------------------
     # CONNECTION
@@ -26,9 +34,8 @@ class MemosAPI:
     def test_connection(self) -> Tuple[bool, str]:
         """Verify server connection"""
         try:
-            r = requests.get(
+            r = self.session.get(
                 f"{self.base_url}/api/v1/memos",
-                headers=self.headers,
                 params={"pageSize": 1},
                 timeout=10,
             )
@@ -47,8 +54,8 @@ class MemosAPI:
     def get_user_info(self) -> Optional[Dict]:
         """Get current user info"""
         try:
-            r = requests.get(
-                f"{self.base_url}/api/v1/user/me", headers=self.headers, timeout=10
+            r = self.session.get(
+                f"{self.base_url}/api/v1/user/me", timeout=10
             )
             return r.json() if r.status_code == 200 else None
         except Exception as e:
@@ -68,9 +75,8 @@ class MemosAPI:
             if page_token:
                 params["pageToken"] = page_token
 
-            r = requests.get(
+            r = self.session.get(
                 f"{self.base_url}/api/v1/memos",
-                headers=self.headers,
                 params=params,
                 timeout=10,
             )
@@ -85,8 +91,8 @@ class MemosAPI:
     def get_memo(self, memo_name: str) -> Tuple[bool, Dict]:
         """Fetch single memo"""
         try:
-            r = requests.get(
-                f"{self.base_url}/api/v1/{memo_name}", headers=self.headers, timeout=10
+            r = self.session.get(
+                f"{self.base_url}/api/v1/{memo_name}", timeout=10
             )
             if r.status_code == 200:
                 return True, r.json()
@@ -98,9 +104,8 @@ class MemosAPI:
     def search_memos(self, query: str) -> Tuple[bool, List[Dict], str]:
         """Search memos by content"""
         try:
-            r = requests.get(
+            r = self.session.get(
                 f"{self.base_url}/api/v1/memos",
-                headers=self.headers,
                 params={"filter": f'content.contains("{query}")'},
                 timeout=10,
             )
@@ -115,9 +120,8 @@ class MemosAPI:
     def create_memo(self, content: str) -> Tuple[bool, Dict]:
         """Create memo without attachments"""
         try:
-            r = requests.post(
+            r = self.session.post(
                 f"{self.base_url}/api/v1/memos",
-                headers=self.headers,
                 json={"content": content},
                 timeout=10,
             )
@@ -129,9 +133,8 @@ class MemosAPI:
     def update_memo(self, memo_name: str, content: str) -> Tuple[bool, Dict]:
         """Update memo content"""
         try:
-            r = requests.patch(
+            r = self.session.patch(
                 f"{self.base_url}/api/v1/{memo_name}",
-                headers=self.headers,
                 json={"content": content},
                 timeout=10,
             )
@@ -143,8 +146,8 @@ class MemosAPI:
     def delete_memo(self, memo_name: str) -> bool:
         """Delete memo"""
         try:
-            r = requests.delete(
-                f"{self.base_url}/api/v1/{memo_name}", headers=self.headers, timeout=10
+            r = self.session.delete(
+                f"{self.base_url}/api/v1/{memo_name}", timeout=10
             )
             return r.status_code in [200, 204]
         except Exception as e:
@@ -158,9 +161,8 @@ class MemosAPI:
     def get_memo_attachments(self, memo_name: str) -> List[Dict]:
         """Fetch attachments for a memo"""
         try:
-            r = requests.get(
+            r = self.session.get(
                 f"{self.base_url}/api/v1/{memo_name}/attachments",
-                headers=self.headers,
                 timeout=5,
             )
             return r.json().get("attachments", []) if r.status_code == 200 else []
@@ -177,9 +179,8 @@ class MemosAPI:
             with open(file_path, "rb") as f:
                 content_b64 = base64.b64encode(f.read()).decode("utf-8")
 
-            r = requests.post(
+            r = self.session.post(
                 f"{self.base_url}/api/v1/attachments",
-                headers=self.headers,
                 json={"filename": file_name, "type": mime_type, "content": content_b64},
                 timeout=30,
             )
@@ -201,9 +202,8 @@ class MemosAPI:
         if not attachment_refs:
             return True
         try:
-            r = requests.patch(
+            r = self.session.patch(
                 f"{self.base_url}/api/v1/{memo_name}/attachments",
-                headers=self.headers,
                 json={"attachments": attachment_refs},
                 timeout=30,
             )
@@ -289,9 +289,8 @@ class MemosAPI:
     def get_memo_comments(self, memo_name: str) -> List[Dict]:
         """Fetch comments for a memo"""
         try:
-            r = requests.get(
+            r = self.session.get(
                 f"{self.base_url}/api/v1/{memo_name}/comments",
-                headers=self.headers,
                 timeout=5,
             )
             print(f"Comments URL: {self.base_url}/api/v1/{memo_name}/comments")

@@ -6,12 +6,14 @@ from gi.repository import GLib, Gtk
 from .memo_heatmap import MemoHeatmap
 from .memo_loader import MemoLoader
 from .memo_row import MemoRow
+from .view_base import ViewBase
 
 
-class MemosView:
+class MemosView(ViewBase):
     """Memo list with heatmap and search"""
 
     def __init__(self, container, scrolled_window, memo_count_label=None):
+        super().__init__()
         self.container = container
         self.scrolled_window = scrolled_window
         self.memo_count_label = memo_count_label
@@ -22,7 +24,22 @@ class MemosView:
         self.is_searching = False
 
         self.adjustment = self.scrolled_window.get_vadjustment()
-        self.adjustment.connect("value-changed", self._on_scroll)
+        self._scroll_handler = self.add_signal(
+            self.adjustment, self.adjustment.connect("value-changed", self._on_scroll)
+        )
+
+    def cleanup(self):
+        """Clean up resources before destroying"""
+        # Call parent cleanup for timeouts and signals
+        super().cleanup()
+        
+        # Clean up memo_loader
+        if self.memo_loader:
+            self.memo_loader.cleanup()
+            self.memo_loader = None
+        
+        # Clear heatmap reference
+        self.heatmap = None
 
     # -------------------------------------------------------------------------
     # LOAD
@@ -51,7 +68,7 @@ class MemosView:
         self.is_searching = False
         self._update_count()
 
-        GLib.timeout_add(100, self._scroll_past_heatmap)
+        self.add_timeout(GLib.timeout_add(100, self._scroll_past_heatmap))
 
     def _scroll_past_heatmap(self):
         """Hide heatmap initially"""

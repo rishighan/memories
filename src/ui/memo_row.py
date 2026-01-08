@@ -1,6 +1,7 @@
 # ui/memo_row.py
 # Memo list row: content preview, thumbnail stack, async image loading
 
+import contextlib
 import threading
 from datetime import datetime
 
@@ -81,17 +82,37 @@ class MemoRow:
         label.set_max_width_chars(50)
         box.append(label)
 
-        # Date
+        # Date with visibility icons
         create_time = memo.get("createTime", "")
         if create_time:
             try:
                 dt = datetime.fromisoformat(create_time.replace("Z", "+00:00"))
                 date_str = dt.strftime("%B %d, %Y at %I:%M %p")
+                
+                # Create horizontal box for date and icons
+                date_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+                date_box.set_halign(Gtk.Align.START)
+                
                 date_label = Gtk.Label(label=date_str)
                 date_label.set_xalign(0)
                 date_label.add_css_class("caption")
                 date_label.add_css_class("dim-label")
-                box.append(date_label)
+                date_box.append(date_label)
+                
+                # Add visibility icon
+                visibility = memo.get("visibility", "PUBLIC")
+                if visibility == "PRIVATE":
+                    private_icon = Gtk.Image.new_from_icon_name("system-lock-screen-symbolic")
+                    private_icon.set_tooltip_text("Private")
+                    private_icon.add_css_class("dim-label")
+                    date_box.append(private_icon)
+                elif visibility == "PROTECTED":
+                    protected_icon = Gtk.Image.new_from_icon_name("dialog-password-symbolic")
+                    protected_icon.set_tooltip_text("Protected")
+                    protected_icon.add_css_class("dim-label")
+                    date_box.append(protected_icon)
+                
+                box.append(date_box)
             except (ValueError, AttributeError) as e:
                 print(f"Error parsing date {create_time}: {e}")
 
@@ -173,7 +194,12 @@ class MemoRow:
                 full_url = f"{api.base_url}{url}" if url.startswith("/") else url
                 print(f"[THUMB] Loading: {full_url}")
 
-                headers = api.headers.copy()
+                # Copy headers from API - works with both dict and session headers
+                headers = {}
+                if hasattr(api.headers, 'items'):
+                    headers.update(api.headers)
+                else:
+                    headers.update(dict(api.headers))
                 headers["Accept"] = "image/*"
 
                 r = requests.get(full_url, headers=headers, timeout=5)
@@ -204,17 +230,19 @@ class MemoRow:
         import os
         import tempfile
 
+        fd = None
+        path = None
         try:
             # Write to temp file
             fd, path = tempfile.mkstemp(suffix=".png")
             os.write(fd, data)
             os.close(fd)
+            fd = None  # Mark as closed
 
             # Load directly with GdkPixbuf (bypass glycin)
             pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
                 path, MemoRow.THUMB_SIZE, MemoRow.THUMB_SIZE, True
             )
-            os.unlink(path)
 
             texture = Gdk.Texture.new_for_pixbuf(pixbuf)
             picture = Gtk.Picture.new_for_paintable(texture)
@@ -227,3 +255,11 @@ class MemoRow:
             image_box.set_visible(True)
         except Exception as e:
             print(f"[THUMB] Set error: {e}")
+        finally:
+            # Clean up temp file in all cases
+            if fd is not None:
+                with contextlib.suppress(OSError):
+                    os.close(fd)
+            if path is not None:
+                with contextlib.suppress(OSError):
+                    os.unlink(path)

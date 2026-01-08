@@ -274,6 +274,15 @@
                         <property name="spacing">12</property>
                         <property name="vexpand">true</property>
                         <child>
+                          <object class="GtkLabel" id="auto_refresh_label">
+                            <property name="label"></property>
+                            <style>
+                              <class name="caption"/>
+                              <class name="dim-label"/>
+                            </style>
+                          </object>
+                        </child>
+                        <child>
                           <object class="GtkLabel" id="memo_count_label">
                             <property name="label">0 memos</property>
                             <style>

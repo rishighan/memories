@@ -9,12 +9,14 @@ from gi.repository import GLib, Gtk
 
 from .memo_heatmap import MemoHeatmap
 from .memo_row import MemoRow
+from .view_base import ViewBase
 
 
-class MemoLoader:
+class MemoLoader(ViewBase):
     """Load, group, and paginate memos"""
 
     def __init__(self, api, container):
+        super().__init__()
         self.api = api
         self.container = container
         self.page_token = None
@@ -22,6 +24,22 @@ class MemoLoader:
         self.month_sections = {}
         self.on_reload_complete = None
         self.on_memo_clicked = None
+        self._listbox_handlers = []
+
+    def cleanup(self):
+        """Clean up resources before destroying"""
+        # Call parent cleanup
+        super().cleanup()
+        
+        # Clear callbacks to break circular references
+        self.on_reload_complete = None
+        self.on_memo_clicked = None
+        
+        # Clear API reference
+        self.api = None
+        
+        # Clear month sections
+        self.month_sections.clear()
 
     # -------------------------------------------------------------------------
     # LOAD
@@ -120,7 +138,8 @@ class MemoLoader:
         listbox = Gtk.ListBox()
         listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
         listbox.add_css_class("boxed-list")
-        listbox.connect("row-activated", self._on_row_activated)
+        handler_id = listbox.connect("row-activated", self._on_row_activated)
+        self.add_signal(listbox, handler_id)
 
         for memo in memos:
             listbox.append(MemoRow.create(memo, self.api, MemoRow.fetch_attachments))

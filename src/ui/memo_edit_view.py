@@ -6,15 +6,17 @@ import threading
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk, Pango
 
 from ..utils.markdown import MarkdownUtils
+from .view_base import ViewBase
 
 
-class MemoEditView:
+class MemoEditView(ViewBase):
     """Memo editor with autosave"""
 
     MAX_FILE_SIZE = 30 * 1024 * 1024
     AUTOSAVE_DELAY = 2000
 
     def __init__(self, container, title_widget):
+        super().__init__()
         self.container = container
         self.title_widget = title_widget
         self.api = None
@@ -31,6 +33,23 @@ class MemoEditView:
         self._ui_initialized = False
 
         self._setup_ui()
+
+    def cleanup(self):
+        """Clean up resources before destroying"""
+        # Call parent cleanup for timeouts and signals
+        super().cleanup()
+        
+        # Clear callbacks to break circular references
+        self.on_save_callback = None
+        self.on_delete_callback = None
+        
+        # Clear API reference
+        self.api = None
+        
+        # Clear memo references
+        self.current_memo = None
+        self.attachments = []
+        self.existing_attachments = []
 
     # -------------------------------------------------------------------------
     # UI SETUP
@@ -272,12 +291,12 @@ class MemoEditView:
 
         # Clear autosave timeout
         if self._autosave_timeout:
-            GLib.source_remove(self._autosave_timeout)
+            self.remove_timeout(self._autosave_timeout)
             self._autosave_timeout = None
 
         # Clear update timeout
         if self._update_timeout:
-            GLib.source_remove(self._update_timeout)
+            self.remove_timeout(self._update_timeout)
             self._update_timeout = None
 
         # Clear attachments
@@ -315,8 +334,10 @@ class MemoEditView:
     def _schedule_autosave(self):
         """Reset autosave timer"""
         if self._autosave_timeout:
-            GLib.source_remove(self._autosave_timeout)
-        self._autosave_timeout = GLib.timeout_add(self.AUTOSAVE_DELAY, self._autosave)
+            self.remove_timeout(self._autosave_timeout)
+        self._autosave_timeout = self.add_timeout(
+            GLib.timeout_add(self.AUTOSAVE_DELAY, self._autosave)
+        )
 
     def _autosave(self):
         """Auto-save if changed"""
@@ -685,8 +706,10 @@ class MemoEditView:
     def _on_text_changed(self, buffer):
         """Markdown styling + autosave"""
         if self._update_timeout:
-            GLib.source_remove(self._update_timeout)
-        self._update_timeout = GLib.timeout_add(50, self._apply_markdown_styling)
+            self.remove_timeout(self._update_timeout)
+        self._update_timeout = self.add_timeout(
+            GLib.timeout_add(50, self._apply_markdown_styling)
+        )
 
         self._schedule_autosave()
 

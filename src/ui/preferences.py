@@ -60,17 +60,54 @@ class PreferencesWindow(Adw.PreferencesWindow):
         self.status_label.set_visible(False)
         creds_group.add(self.status_label)
 
+        # App settings group
+        settings_group = Adw.PreferencesGroup()
+        settings_group.set_title("Application Settings")
+        page.add(settings_group)
+
+        # Auto-refresh interval
+        self.refresh_row = Adw.ComboRow()
+        self.refresh_row.set_title("Auto-refresh Interval")
+        self.refresh_row.set_subtitle("Automatically refresh memos list")
+        
+        # Create string list for intervals
+        string_list = Gtk.StringList()
+        string_list.append("5 minutes")
+        string_list.append("10 minutes")
+        string_list.append("15 minutes")
+        self.refresh_row.set_model(string_list)
+        
+        self.refresh_row.connect("notify::selected", self._on_refresh_interval_changed)
+        settings_group.add(self.refresh_row)
+
     def _load_settings(self):
-        """Load saved credentials"""
+        """Load saved credentials and settings"""
         url = self.settings.get_server_url() or ""
         token = self.settings.get_api_token() or ""
         self.url_row.set_text(url)
         self.token_row.set_text(token)
+        
+        # Load auto-refresh interval
+        interval = self.settings.get_auto_refresh_interval()
+        # Map interval to combo box index (5->0, 10->1, 15->2)
+        index = {5: 0, 10: 1, 15: 2}.get(interval, 0)
+        self.refresh_row.set_selected(index)
 
     def _on_changed(self, row):
         """Save on change"""
         self.settings.set_server_url(self.url_row.get_text().strip())
         self.settings.set_api_token(self.token_row.get_text().strip())
+
+    def _on_refresh_interval_changed(self, combo_row, param):
+        """Save auto-refresh interval"""
+        index = combo_row.get_selected()
+        # Map index to interval (0->5, 1->10, 2->15)
+        interval = [5, 10, 15][index]
+        self.settings.set_auto_refresh_interval(interval)
+        
+        # Notify parent window to restart timer
+        if self.on_credentials_changed:
+            self.on_credentials_changed()
 
     def _on_test_clicked(self, button):
         """Test connection"""

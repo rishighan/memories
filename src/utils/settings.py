@@ -24,3 +24,17 @@ class Settings:
 
     def set_api_token(self, token):
         self.settings.set_string("api-token", token)
+
+    def get_auto_refresh_interval(self):
+        """Get auto-refresh interval in minutes (5, 10, or 15)"""
+        interval = self.settings.get_int("auto-refresh-interval")
+        # Validate and default to 5 if invalid
+        if interval not in [5, 10, 15]:
+            interval = 5
+            self.set_auto_refresh_interval(interval)
+        return interval
+
+    def set_auto_refresh_interval(self, interval):
+        """Set auto-refresh interval (must be 5, 10, or 15)"""
+        if interval in [5, 10, 15]:
+            self.settings.set_int("auto-refresh-interval", interval)
