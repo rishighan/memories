@@ -39,11 +39,12 @@ class MemosAPI:
                 params={"pageSize": 1},
                 timeout=10,
             )
-            return (
-                (True, "Connected")
-                if r.status_code == 200
-                else (False, f"HTTP {r.status_code}")
-            )
+            if r.status_code == 200:
+                return True, "Connected"
+            elif r.status_code in [401, 403]:
+                return False, "Authentication failed - token may be expired or invalid"
+            else:
+                return False, f"HTTP {r.status_code}"
         except requests.exceptions.Timeout:
             return False, "Timeout"
         except requests.exceptions.ConnectionError:
@@ -82,7 +83,12 @@ class MemosAPI:
             if r.status_code == 200:
                 data = r.json()
                 return True, data.get("memos", []), data.get("nextPageToken")
-            return False, [], None
+            elif r.status_code in [401, 403]:
+                print(f"Authentication failed when fetching memos: HTTP {r.status_code}")
+                return False, [], None
+            else:
+                print(f"Error fetching memos: HTTP {r.status_code}")
+                return False, [], None
         except Exception as e:
             print(f"Error fetching memos: {e}")
             return False, [], None

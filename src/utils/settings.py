@@ -38,3 +38,8 @@ class Settings:
         """Set auto-refresh interval (must be 5, 10, or 15)"""
         if interval in [5, 10, 15]:
             self.settings.set_int("auto-refresh-interval", interval)
+    
+    def clear_credentials(self):
+        """Clear stored server URL and API token"""
+        self.settings.set_string("server-url", "")
+        self.settings.set_string("api-token", "")

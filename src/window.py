@@ -368,7 +368,9 @@ class MemoriesWindow(Adw.ApplicationWindow):
     def _on_preferences(self, action, param):
         """Open preferences"""
         prefs = PreferencesWindow(
-            self, on_credentials_changed=self._on_credentials_changed
+            self,
+            on_credentials_changed=self._on_credentials_changed,
+            on_credentials_cleared=self._on_credentials_cleared
         )
         prefs.present()
 
@@ -379,6 +381,16 @@ class MemoriesWindow(Adw.ApplicationWindow):
             self._start_auto_refresh()
         else:
             self._try_auto_connect()
+    
+    def _on_credentials_cleared(self):
+        """Handle credentials being cleared"""
+        # Disconnect if currently connected
+        if self.api:
+            self._on_disconnect(None, None)
+        
+        # Clear the connection form fields
+        self.connection_view.url_entry.set_text("")
+        self.connection_view.token_entry.set_text("")
 
     # -------------------------------------------------------------------------
     # AUTO-REFRESH

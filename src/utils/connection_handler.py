@@ -23,19 +23,23 @@ class ConnectionHandler:
             try:
                 api = MemosAPI(base_url, token)
 
-                # Test connection
+                # Test connection and authentication
                 ok, msg = api.test_connection()
                 if not ok:
+                    # Pass the specific error message (e.g., auth failure)
                     GLib.idle_add(on_failure, msg)
                     return
 
                 # Get user info
                 user_info = api.get_user_info()
+                if user_info is None:
+                    GLib.idle_add(on_failure, "Failed to retrieve user info - authentication may have failed")
+                    return
 
                 # Fetch initial memos
                 ok, memos, page_token = api.get_memos()
                 if not ok:
-                    GLib.idle_add(on_failure, "Failed to load memos")
+                    GLib.idle_add(on_failure, "Failed to load memos - please check your credentials")
                     return
 
                 GLib.idle_add(on_success, api, memos, page_token, user_info)

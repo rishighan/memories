@@ -9,14 +9,15 @@ from ..utils.settings import Settings
 class PreferencesWindow(Adw.PreferencesWindow):
     """App preferences"""
 
-    def __init__(self, parent, on_credentials_changed=None):
+    def __init__(self, parent, on_credentials_changed=None, on_credentials_cleared=None):
         super().__init__()
         self.set_transient_for(parent)
         self.set_modal(True)
         self.set_title("Preferences")
-        self.set_default_size(400, 350)  # Smaller size
+        self.set_default_size(430, 460)
         self.settings = Settings()
         self.on_credentials_changed = on_credentials_changed
+        self.on_credentials_cleared = on_credentials_cleared
 
         self._build_ui()
         self._load_settings()
